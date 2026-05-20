@@ -1,117 +1,158 @@
-# Select-to-Speak: 英语学习朗读与精听助手
+# Select-to-Speak: English Reading & Intensive Listening Assistant
 
-这是一个为英语学习者量身定制的 Chrome 浏览器插件项目，支持在网页中选择任意英语文本进行高质量的朗读与精听训练。
+[![Chrome Extension](https://img.shields.io/badge/Chrome%20Extension-Manifest%20V3-orange.svg)](#-chrome-extension-installation-appsweb-extension)
+[![FastAPI](https://img.shields.io/badge/FastAPI-009688.svg?logo=fastapi&logoColor=white)](#-backend-api-deployment-appsapi)
+[![Python](https://img.shields.io/badge/Python-3.9+-blue.svg)](#-backend-api-deployment-appsapi)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
+
+A custom-tailored Google Chrome / Edge browser extension designed specifically for English language learners. This tool allows users to select any English text on any webpage and listen to high-quality speech rendering, as well as engage in systematic, sentence-by-sentence intensive listening exercises.
 
 ---
 
-## 🏗️ 系统架构图
+## 🏗️ System Architecture
 
 ```mermaid
 graph TD
-    UserSelection[用户选择网页文本] --> ContextMenu[右键点击菜单]
-    ContextMenu -->|播放 selection| Background[background.js]
-    ContextMenu -->|精听 selection| Background
+    UserSelection["User selects web text"] --> ContextMenu["Right-click Context Menu"]
+    ContextMenu -->|"Play selection"| Background["background.js"]
+    ContextMenu -->|"Intensive Listening"| Background
     
-    Background -->|消息通信| ContentScript[content.js (Shadow DOM)]
+    Background -->|"Message Communication"| ContentScript["content.js (Shadow DOM)"]
     
-    ContentScript -->|1. 播放功能| FloatingPlayer[浮动悬浮播放器]
-    ContentScript -->|2. 精听功能| SideDrawer[侧边栏精听抽屉]
+    ContentScript -->|"1. Playback Mode"| FloatingPlayer["Draggable Floating Player"]
+    ContentScript -->|"2. Intensive Listening Mode"| SideDrawer["Side Drawer Player"]
     
-    FloatingPlayer -->|TTS 音频请求| FastAPITTS[/api/tts]
-    SideDrawer -->|句子拆分请求| FastAPISplit[/api/split-sentences]
-    SideDrawer -->|单句 TTS 请求| FastAPITTS
+    FloatingPlayer -->|"TTS Audio Request"| FastAPITTS["/api/tts"]
+    SideDrawer -->|"Sentence Splitting Request"| FastAPISplit["/api/split-sentences"]
+    SideDrawer -->|"Single Sentence TTS Request"| FastAPITTS
     
-    FastAPISplit -->|spaCy 拆句器| FastAPI[FastAPI Backend]
-    FastAPITTS -->|edge-tts 语音合成| FastAPI
+    FastAPISplit -->|"spaCy Splitter"| FastAPI["FastAPI Backend"]
+    FastAPITTS -->|"edge-tts Speech Synthesis"| FastAPI
 ```
 
-- **后端服务 (`apps/api`)**：基于 Python FastAPI 框架，使用 `edge-tts` 调用微软 Edge 免费高品质大模型语音接口，结合 `spaCy` (使用轻量级的 blank English 结构和 sentencizer 分词管道) 快速高精度拆分句子。
-- **浏览器插件 (`apps/web-extension`)**：遵循 Manifest V3 标准，UI 组件全部在**隔离的 Shadow DOM** 中渲染。这保证了插件的 Tailwind CSS 样式与任意宿主网页完全独立，互不污染，且不会被网页自带的样式强行覆盖。
+### Component Overview
+- **Backend API (`apps/api`)**: Powered by the Python FastAPI framework. It leverages `edge-tts` to hook into Microsoft Edge's highly natural, neural Text-to-Speech voices, and uses `spaCy` (configured with a lightweight English sentencizer pipeline) to split long passages into accurate, punctuation-aware individual sentences.
+- **Web Extension (`apps/web-extension`)**: Built on the modern Manifest V3 standard. To prevent styling conflicts, all user interface components are encapsulated in an **isolated Shadow DOM**. This ensures that the extension's Tailwind CSS styles remain fully independent, preventing host page CSS from overriding or polluting the extension UI.
 
 ---
 
-## ✨ 核心功能特性
+## 📂 Project Structure
 
-### 1. 网页划词朗读 (Play Selection)
-在任意页面选择一段英文，右键菜单选择“播放 Selection”：
-- 页面会出现一个**精致的、可任意拖动的悬浮播放器**。
-- 播放器集成 Loading 加载动画、播放/暂停、快进/快退 5 秒等常见多媒体操作。
-- 播放器具备视口边界检测，绝不会拖动到屏幕外面去。
-
-### 2. 单句精听抽屉 (Intensive Listening Drawer)
-在网页中划选多段或长篇文本，右键菜单选择“精听 Selection”：
-- 屏幕右侧平滑滑入一个**极具现代设计感的毛玻璃抽屉**。
-- 顶部自动调用后端 spaCy 接口，将长文本按真实英语标点习惯拆分为单个句子。
-- 每个句子卡片具备序号标识，鼠标悬浮呈现高光，正在播放的句子呈现高雅的紫色（Active）突出样式。
-- **智能滚动条对齐**：当切换到下一个句子播放时，抽屉滚动条将**平滑自动定位，使当前播放的句子始终完美显示在屏幕的垂直正中间**。
-- **固定底部播放器 (Sticky Footer Player)**：底部的音频控制器不跟随句子滚动，永久贴合在抽屉底部。提供“单句循环(Loop)”、“重播单句”、“上一句/下一句”切换、以及进度条跳转等高级学习功能。
-
-### 3. 高颜值设置中心 (Premium Options Page)
-在插件的设置选项页面中，用户可以进行个性化配置：
-- **后端服务地址自动适配**：内置自动环境识别（开发模式自动请求 `http://localhost:8000`，发布模式自动适配生产服务），移除了手动输入框防错防误触，同时保留了一键测试后端连接的毫秒级测速功能。
-- **微软 Edge 高品质发音人选择**：可直接拉取后端支持的高音质发音人列表（如最自然的 Ava 少女音、Andrew 暖男音等）。
-- **语速调节 (Rate) 模块**：提供直观的配置指引与快捷说明（如 `+10%` 加速听力，`-15%` 慢速辨音）。
+```
+select-to-speak/
+├── apps/
+│   ├── api/                 # Python FastAPI backend service
+│   │   ├── main.py          # Backend entry point
+│   │   ├── requirements.txt # Python dependency definitions
+│   │   └── Dockerfile       # Containerization setup
+│   └── web-extension/       # Manifest V3 Chrome Extension
+│       ├── manifest.json    # Extension configuration
+│       ├── content.js       # Content script (handles Shadow DOM player and drawer)
+│       ├── background.js    # Service worker (manages context menus)
+│       └── options.html/js  # Premium options and configuration page
+├── docker-compose.yml       # Docker orchestration config
+└── README.md                # Project documentation
+```
 
 ---
 
-## 🛠️ 后端服务部署 (`apps/api`)
+## ✨ Key Features
 
-后端服务支持 **Docker Compose 一键部署**（推荐）或 **本地 Python 环境部署**。
+### 1. Play Selection (Webpage Speech Playback)
+Highlight any English text on any website, right-click, and choose **"Play Selection"**:
+- **Elegant Floating Player**: An on-screen widget that can be dragged freely.
+- **Full Playback Controls**: Includes loading animations, play/pause toggles, and 5-second fast-forward/rewind skips.
+- **Boundary Detection**: Prevents the widget from being dragged off the visible screen area, ensuring it's always accessible.
 
-### 选项 A：使用 Docker Compose 一键部署（推荐 ⚡）
-项目根目录下已配置好 `docker-compose.yml`，宿主机外部端口映射为 **`18002`**：
+### 2. Intensive Listening Drawer
+For larger articles or multi-paragraph segments, highlight the text and select **"Intensive Listening Selection"**:
+- **Glassmorphism Side Drawer**: A highly modern, semi-transparent frosted glass drawer slides smoothly in from the right.
+- **Smart Sentence Breakdown**: Automatically splits the text into clean, individual sentences using the backend `spaCy` NLP pipeline.
+- **Dynamic Interaction**: Hovering over cards highlights them, and the currently active playing sentence is highlighted in a vibrant, elegant purple.
+- **Smart Viewport Alignment**: As the audio transitions to the next sentence, the scroll container automatically and smoothly scrolls to position the active sentence perfectly in the vertical center of the screen.
+- **Sticky Footer Player**: Audio controls are locked to the bottom of the drawer. Features advanced learning options such as **"Single Sentence Loop (Loop)"**, "Replay Current", "Previous/Next Sentence", and a custom progress seeker.
+
+### 3. Premium Options Page
+Access the clean settings hub to fully customize your learning experience:
+- **Zero-Config Backend Pathing**: Auto-detects the active environment (localhost:8000 in dev mode, containerized or production endpoints in release mode). Includes a one-click connection benchmark showing round-trip latency in milliseconds.
+- **Microsoft Edge Neural Voice Picker**: Directly pulls a list of available premium voices (e.g., highly realistic and human-like voices such as `Ava` or `Andrew`).
+- **Granular Speech Rate Control**: Provides an intuitive speed adjustment system along with helpful tips (e.g., `+10%` to challenge comprehension, `-15%` to practice fine-grained pronunciation).
+
+---
+
+## 🛠️ Backend API Deployment (`apps/api`)
+
+The backend can be spun up using **Docker Compose** (recommended) or via a **local Python environment**.
+
+### Option A: Using Docker Compose (Recommended ⚡)
+Ensure Docker is installed. The repository includes a preconfigured `docker-compose.yml` that maps the host port to **`18002`**:
 ```bash
-# 在项目根目录下启动后端服务
+# Start the backend services in the background
 docker compose up -d --build
 ```
-启动后，API 服务将运行在 `http://localhost:18002`。
+The API service will now be active at `http://localhost:18002`.
 
-### 选项 B：使用本地 Python 环境部署
-本地开发需要 Python 3.9+ 运行环境：
-1. **安装依赖**：
+### Option B: Local Python Installation
+Requires Python 3.9+:
+1. **Install dependencies**:
    ```bash
    cd apps/api
    python -m pip install -r requirements.txt
    ```
-2. **启动服务**：
+2. **Start the API service**:
    ```bash
    python main.py
    ```
-   本地服务启动后运行在 `http://localhost:8000`。若使用本地部署，请在插件 `options.js` 和 `content.js` 中将开发模式地址改为 `8000` 端口。
+   The local service runs on `http://localhost:8000`. 
+   > [!NOTE]
+   > If you deploy manually on port 8000, verify the endpoints in `options.js` and `content.js` match your port configuration.
 
-### 3. API 接口规范
-- **拆分句子**：`POST /api/split-sentences`
-  - Body: `{"text": "Hello world. Let's study English!"}`
-  - Response: `{"sentences": ["Hello world.", "Let's study English!"]}`
-- **TTS 音频流**：`GET /api/tts?text=Hello&rate=+0%&voice=en-US-AvaNeural`
-  - Response: 字节音频流（`audio/mpeg`）
-- **获取发音人**：`GET /api/voices`
-  - Response: 支持的高清语音列表
+### 3. API Specification
+
+* **Split Sentences**  
+  `POST /api/split-sentences`  
+  - **Body**: `{"text": "Hello world. Let's study English!"}`  
+  - **Response**: `{"sentences": ["Hello world.", "Let's study English!"]}`
+
+* **TTS Audio Stream**  
+  `GET /api/tts?text=Hello&rate=+0%&voice=en-US-AvaNeural`  
+  - **Response**: Binary audio stream (`audio/mpeg`)
+
+* **Retrieve High-Quality Voices**  
+  `GET /api/voices`  
+  - **Response**: List of available neural voice configurations
 
 ---
 
-## 🧩 浏览器插件安装 (`apps/web-extension`)
+## 🧩 Chrome Extension Installation (`apps/web-extension`)
 
-### 1. 编译 Tailwind CSS 样式
-插件采用标准的 Tailwind CSS 进行静态样式预编译（规避 Chrome 扩展对 inline-script/CDN 的安全限制）：
+### 1. Compile Tailwind CSS
+The extension uses pre-compiled Tailwind CSS to fully comply with Chrome Web Store Content Security Policies (CSP) which forbid inline styles and external CDNs:
 ```bash
 cd apps/web-extension
 npm install
 npm run build:css
 ```
-这将在 `dist` 目录下输出高度优化的单一 CSS 样式表 `dist/tailwind.css`。
+This output is written to `dist/tailwind.css` as a highly optimized, unified style sheet.
 
-### 2. 载入扩展程序
-1. 打开 Google Chrome 或 Edge 浏览器，进入扩展管理页面（在地址栏输入 `chrome://extensions/`）。
-2. 在右上角开启“**开发者模式**”（Developer mode）。
-3. 点击左上角的“**加载已解压的扩展程序**”（Load unpacked）。
-4. 选择项目中的 `apps/web-extension` 目录即可成功载入。
+### 2. Load the Unpacked Extension in Chrome
+1. Open Google Chrome or Microsoft Edge and navigate to the Extensions management page (type `chrome://extensions/` in the address bar).
+2. Toggle the **"Developer mode"** switch on in the upper-right corner.
+3. Click the **"Load unpacked"** button in the top-left corner.
+4. Select the `apps/web-extension` directory from this repository.
 
 ---
 
-## 💡 使用小贴士 (Tips)
-- **如果无法朗读**：请右键点击插件图标进入“选项”，点击“⚡ 测试后端连接”按钮，确保本地 API 处于运行状态。
-- **推荐语速设置**：
-  - 正常语速：`+0%` (微软默认音速)
-  - 考试进阶（雅思/托福等）：`+15%` 至 `+25%`
-  - 基础精听模仿（Shadowing）：`-10%`
+## 💡 Practical Learning Tips
+
+- **Troubleshooting Audio**: If speech is not playing, open the extension **Options**, click the **⚡ Test Connection** button, and verify that the backend API is up and running.
+- **Optimal Speed Settings**:
+  - **Natural Reading**: `+0%` (Default Microsoft Neural speed)
+  - **Exam Preparation (IELTS/TOEFL)**: `+15%` to `+25%` to build faster auditory processing.
+  - **Shadowing & Accent Imitation**: `-10%` to hear minor phonetic transitions clearly.
+
+---
+
+## 📄 License
+
+Distributed under the MIT License. See `LICENSE` or refer to the header badges for details.
