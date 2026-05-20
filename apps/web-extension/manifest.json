@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Select-to-Speak English Assistant",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Premium English learning assistant featuring text-to-speech selection playback and sentence-by-sentence intensive listening drawer.",
   "permissions": [
     "contextMenus",

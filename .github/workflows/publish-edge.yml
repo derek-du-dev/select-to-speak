@@ -1,0 +1,46 @@
+name: Publish to Microsoft Edge Add-ons
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch: # Allows manual trigger from GitHub UI
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: apps/web-extension/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          cd apps/web-extension
+          npm ci
+
+      - name: Build CSS
+        run: |
+          cd apps/web-extension
+          npm run build:css
+
+      # Creates the ZIP file using standard zip utility on Linux
+      - name: Package extension (Zip)
+        run: |
+          cd apps/web-extension
+          zip -r ../../select-to-speak-extension.zip . -x "node_modules/*" "src/*" "tailwind.config.js" "package.json" "package-lock.json" "package.ps1" "publish-edge.js"
+
+      - name: Run Publish Script
+        run: |
+          cd apps/web-extension
+          node ./publish-edge.js
+        env:
+          EDGE_PRODUCT_ID: ${{ secrets.EDGE_PRODUCT_ID }}
+          EDGE_CLIENT_ID: ${{ secrets.EDGE_CLIENT_ID }}
+          EDGE_API_KEY: ${{ secrets.EDGE_API_KEY }}

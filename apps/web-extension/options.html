@@ -3,7 +3,24 @@
 <head>
   <meta charset="UTF-8">
   <title>Select-to-Speak 设置中心</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script>
+    (function() {
+      const isCN = (function() {
+        try {
+          const locale = navigator.language || '';
+          const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+          return locale.toLowerCase().includes('zh') || tz.includes('Asia/Shanghai') || tz.includes('Asia/Chongqing') || tz.includes('Asia/Harbin') || tz.includes('Asia/Urumqi');
+        } catch (e) {
+          return false;
+        }
+      })();
+      const fontHost = isCN ? 'fonts.loli.net' : 'fonts.googleapis.com';
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = `https://${fontHost}/css2?family=Inter:wght@300;400;500;600;700&display=swap`;
+      document.head.appendChild(link);
+    })();
+  </script>
   <link rel="stylesheet" href="dist/tailwind.css">
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen flex items-center justify-center p-6 selection:bg-brand-100 selection:text-brand-900">

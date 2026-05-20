@@ -70,9 +70,19 @@ function initShadowDOM() {
   linkEl.href = chrome.runtime.getURL("dist/tailwind.css");
   shadowRoot.appendChild(linkEl);
 
-  // Load Inter Font style if possible inside shadow
+  // Load Inter Font style if possible inside shadow (supports China mirror dynamically)
   const fontLink = document.createElement("style");
-  fontLink.textContent = `@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');`;
+  const isCN = (function() {
+    try {
+      const locale = navigator.language || '';
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+      return locale.toLowerCase().includes('zh') || tz.includes('Asia/Shanghai') || tz.includes('Asia/Chongqing') || tz.includes('Asia/Harbin') || tz.includes('Asia/Urumqi');
+    } catch (e) {
+      return false;
+    }
+  })();
+  const fontHost = isCN ? 'fonts.loli.net' : 'fonts.googleapis.com';
+  fontLink.textContent = `@import url('https://${fontHost}/css2?family=Inter:wght@400;500;600;700&display=swap');`;
   shadowRoot.appendChild(fontLink);
 
   // Create component rendering wrapper
@@ -189,13 +199,13 @@ function renderFloatingPlayer(text, x, y) {
 
     player.innerHTML = `
       <!-- Header / Drag Handle -->
-      <div id="player-drag-handle" class="flex items-center justify-between cursor-move pb-1 border-b border-slate-100">
+      <div id="player-drag-handle" class="flex items-center justify-between cursor-move pb-1.5 border-b border-slate-100">
         <div class="flex items-center space-x-2">
-          <div class="bg-white p-0.5 rounded-lg shadow-sm border border-slate-100 overflow-hidden w-7 h-7 flex items-center justify-center">
-            <img src="${chrome.runtime.getURL('assets/logo.png')}" alt="Logo" class="w-6 h-6 object-contain rounded">
+          <div class="bg-white p-0.5 rounded-lg shadow-sm border border-slate-100 overflow-hidden w-8 h-8 flex items-center justify-center">
+            <img src="${chrome.runtime.getURL('assets/logo.png')}" alt="Logo" class="w-7 h-7 object-contain rounded">
           </div>
-          <span class="text-xs font-semibold text-slate-700 tracking-wide select-none">朗读模式</span>
-          <span class="text-[10px] bg-indigo-50 text-indigo-600 font-mono font-medium px-1.5 py-0.5 rounded border border-indigo-100 select-none">${settings.rate}</span>
+          <span class="text-sm font-semibold text-slate-700 tracking-wide select-none">朗读模式</span>
+          <span class="text-xs bg-indigo-50 text-indigo-600 font-mono font-medium px-2 py-0.5 rounded border border-indigo-100 select-none">${settings.rate}</span>
         </div>
         <button id="player-close" class="text-slate-400 hover:text-slate-600 hover:bg-slate-50 p-1 rounded-lg transition-all focus:outline-none">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -205,13 +215,13 @@ function renderFloatingPlayer(text, x, y) {
       </div>
 
       <!-- Content Snippet -->
-      <div class="text-xs text-slate-500 leading-relaxed max-h-16 overflow-y-auto italic pr-1 select-none">
+      <div class="text-sm text-slate-600 leading-relaxed max-h-16 overflow-y-auto italic pr-1 select-none">
         "${text.length > 120 ? text.substring(0, 120) + '...' : text}"
       </div>
 
       <!-- Progress Tracking -->
       <div class="space-y-1">
-        <div class="flex justify-between text-[10px] text-slate-400 font-mono">
+        <div class="flex justify-between text-xs text-slate-500 font-mono">
           <span id="player-curr-time">0:00</span>
           <span id="player-status">生成中...</span>
           <span id="player-total-time">0:00</span>
@@ -559,7 +569,7 @@ function renderIntensiveDrawer(text) {
     <div id="drawer-footer-player" class="absolute bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-100 shadow-premium p-5 z-20 flex flex-col space-y-3.5 hidden">
       <!-- Sentence Progress Track -->
       <div class="space-y-1">
-        <div class="flex justify-between text-[9px] text-slate-400 font-mono">
+        <div class="flex justify-between text-xs text-slate-500 font-mono">
           <span id="footer-curr-time">0:00</span>
           <span id="footer-sentence-indicator">第 0 / 0 句</span>
           <span id="footer-total-time">0:00</span>
@@ -573,10 +583,10 @@ function renderIntensiveDrawer(text) {
       <div class="flex items-center justify-between">
         <!-- Info display / rate -->
         <div class="flex flex-col space-y-0.5 max-w-[120px] select-none">
-          <span id="footer-voice-name" class="text-[10px] text-slate-400 font-medium truncate">AvaNeural</span>
+          <span id="footer-voice-name" class="text-xs text-slate-600 font-semibold truncate">AvaNeural</span>
           <div class="flex items-center space-x-1.5">
             <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping"></span>
-            <span class="text-[9px] text-slate-500 font-mono tracking-wider font-semibold uppercase">ONLINE</span>
+            <span class="text-[11px] text-slate-600 font-mono tracking-wider font-bold uppercase">ONLINE</span>
           </div>
         </div>
 
@@ -621,7 +631,7 @@ function renderIntensiveDrawer(text) {
           </button>
 
           <!-- Speed Display -->
-          <span id="footer-speed-badge" class="text-[10px] bg-slate-100 text-slate-600 font-mono font-bold px-2 py-1 rounded border border-slate-200 select-none">${ttsSettings.rate}</span>
+          <span id="footer-speed-badge" class="text-xs bg-slate-100 text-slate-700 font-mono font-bold px-2 py-1 rounded border border-slate-200 select-none">${ttsSettings.rate}</span>
         </div>
 
         <!-- Replay Sentence Button -->
@@ -629,7 +639,7 @@ function renderIntensiveDrawer(text) {
           <svg class="w-4 h-4 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 8H18.2"></path>
           </svg>
-          <span class="text-[10px] font-semibold text-slate-600 group-hover:text-brand-600">重播</span>
+          <span class="text-xs font-semibold text-slate-600 group-hover:text-brand-600">重播</span>
         </button>
       </div>
     </div>
@@ -759,8 +769,8 @@ function renderIntensiveDrawer(text) {
         </div>
         <div class="text-center space-y-2">
           <h3 class="font-bold text-slate-900 text-base">正在极速缓存语音...</h3>
-          <p id="initial-preload-progress" class="text-xs text-slate-500 font-medium">已缓存: 0 / 0 句</p>
-          <div class="text-[10px] text-slate-400 max-w-[240px] leading-relaxed mx-auto">为了保证您极速、零延迟的精听体验，我们正在为您提前加载前 5 句高品质语音。</div>
+          <p id="initial-preload-progress" class="text-sm text-slate-600 font-medium">已缓存: 0 / 0 句</p>
+          <div class="text-xs text-slate-500 max-w-[280px] leading-relaxed mx-auto">为了保证您极速、零延迟的精听体验，我们正在为您提前加载前 5 句高品质语音。</div>
         </div>
       `;
       drawer.appendChild(preloadOverlay);

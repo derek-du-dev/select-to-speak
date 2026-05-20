@@ -6,7 +6,8 @@
   "scripts": {
     "build:css": "npx tailwindcss -i ./src/input.css -o ./dist/tailwind.css --minify",
     "watch:css": "npx tailwindcss -i ./src/input.css -o ./dist/tailwind.css --watch",
-    "package": "powershell -ExecutionPolicy Bypass -File ./package.ps1"
+    "package": "powershell -ExecutionPolicy Bypass -File ./package.ps1",
+    "publish:edge": "node ./publish-edge.js"
   },
   "devDependencies": {
     "tailwindcss": "^3.4.1"
