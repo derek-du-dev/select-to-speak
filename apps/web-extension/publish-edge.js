@@ -18,7 +18,7 @@ if (!PRODUCT_ID || !CLIENT_ID || !API_KEY) {
   process.exit(1);
 }
 
-const BASE_URL = `https://api.addons.microsoftedge.microsoft.com/v1.1/products/${PRODUCT_ID}/submissions/draft`;
+const BASE_URL = `https://api.addons.microsoftedge.microsoft.com/v1/products/${PRODUCT_ID}/submissions/draft`;
 
 async function publish() {
   try {
