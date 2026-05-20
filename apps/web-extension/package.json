@@ -1,0 +1,14 @@
+{
+  "name": "select-to-speak-extension",
+  "version": "1.0.0",
+  "description": "Chrome extension for English learning with TTS and intensive listening.",
+  "main": "background.js",
+  "scripts": {
+    "build:css": "npx tailwindcss -i ./src/input.css -o ./dist/tailwind.css --minify",
+    "watch:css": "npx tailwindcss -i ./src/input.css -o ./dist/tailwind.css --watch",
+    "package": "powershell -ExecutionPolicy Bypass -File ./package.ps1"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.1"
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "manifest_version": 3,
+  "name": "Select-to-Speak English Assistant",
+  "version": "1.0.0",
+  "description": "Premium English learning assistant featuring text-to-speech selection playback and sentence-by-sentence intensive listening drawer.",
+  "permissions": [
+    "contextMenus",
+    "storage",
+    "activeTab",
+    "scripting"
+  ],
+  "icons": {
+    "16": "assets/logo.png",
+    "32": "assets/logo.png",
+    "48": "assets/logo.png",
+    "128": "assets/logo.png"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"]
+    }
+  ],
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
+  "action": {
+    "default_title": "Select-to-Speak Settings",
+    "default_icon": "assets/logo.png"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["dist/tailwind.css", "assets/logo.png"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}
