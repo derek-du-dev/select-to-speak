@@ -1,21 +1,89 @@
 // Background script for Select-to-Speak Extension
 
+// Helper to resolve current language preference
+function getLanguage(storedLang) {
+  const lang = storedLang || "auto";
+  if (lang === "auto") {
+    const uiLang = chrome.i18n.getUILanguage().toLowerCase();
+    return uiLang.startsWith("zh") ? "zh" : "en";
+  }
+  return lang;
+}
+
+// Function to update context menu titles based on language
+function updateContextMenus(storedLang) {
+  const resolvedLang = getLanguage(storedLang);
+  
+  const playTitle = resolvedLang === "zh" 
+    ? "播放选中内容 (Ctrl+Shift+Y)" 
+    : "Play Selection (Ctrl+Shift+Y)";
+    
+  const intensiveTitle = resolvedLang === "zh" 
+    ? "精听选中内容 (Ctrl+Shift+H)" 
+    : "Intensive Listening (Ctrl+Shift+H)";
+
+  // Remove existing context menus first to avoid duplicate IDs during re-registration
+  chrome.contextMenus.removeAll(() => {
+    chrome.contextMenus.create({
+      id: "play-selection",
+      title: playTitle,
+      contexts: ["selection"]
+    });
+
+    chrome.contextMenus.create({
+      id: "intensive-listening",
+      title: intensiveTitle,
+      contexts: ["selection"]
+    });
+  });
+}
+
+// Initialize on install or startup
 chrome.runtime.onInstalled.addListener(() => {
   console.log("Select-to-Speak Extension installed successfully.");
-  
-  // Register context menu items
-  chrome.contextMenus.create({
-    id: "play-selection",
-    title: "播放 Selection",
-    contexts: ["selection"]
-  });
-
-  chrome.contextMenus.create({
-    id: "intensive-listening",
-    title: "精听 Selection",
-    contexts: ["selection"]
+  chrome.storage.sync.get({ language: "auto" }, (items) => {
+    updateContextMenus(items.language);
   });
 });
+
+chrome.runtime.onStartup.addListener(() => {
+  chrome.storage.sync.get({ language: "auto" }, (items) => {
+    updateContextMenus(items.language);
+  });
+});
+
+// Listen for storage changes to update context menus dynamically
+chrome.storage.onChanged.addListener((changes, namespace) => {
+  if (namespace === "sync" && changes.language) {
+    updateContextMenus(changes.language.newValue);
+  }
+});
+
+// Common handler for selection action delivery
+function handleSelectionAction(tabId, action, text = null) {
+  const message = { action };
+  if (text) message.text = text;
+
+  chrome.tabs.sendMessage(tabId, message)
+    .catch((error) => {
+      console.warn("Content script not ready. Injecting script dynamically...", error);
+      
+      // Dynamic fallback injection if the content script hasn't loaded automatically
+      chrome.scripting.executeScript({
+        target: { tabId },
+        files: ["content.js"]
+      }).then(() => {
+        // Re-send the message after short delay to allow content script setup
+        setTimeout(() => {
+          chrome.tabs.sendMessage(tabId, message).catch(e => {
+            console.error("Failed to send action after dynamic injection: ", e);
+          });
+        }, 300);
+      }).catch(err => {
+        console.error("Failed to inject content script dynamically: ", err);
+      });
+    });
+}
 
 // Listen for context menu clicks
 chrome.contextMenus.onClicked.addListener((info, tab) => {
@@ -26,26 +94,19 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
     const text = info.selectionText;
 
     console.log(`Context menu clicked. Action: ${action}, Text: '${text.substring(0, 30)}...'`);
+    handleSelectionAction(tab.id, action, text);
+  }
+});
 
-    // Send selection text and action directly to the content script in the active tab
-    chrome.tabs.sendMessage(tab.id, { action, text })
-      .catch((error) => {
-        console.warn("Content script not ready or cannot be reached. Injecting script...", error);
-        
-        // Dynamic fallback injection if the content script hasn't loaded automatically
-        chrome.scripting.executeScript({
-          target: { tabId: tab.id },
-          files: ["content.js"]
-        }).then(() => {
-          // Re-send the message after short delay to allow content script setup
-          setTimeout(() => {
-            chrome.tabs.sendMessage(tab.id, { action, text }).catch(e => {
-              console.error("Failed to send action after dynamic injection: ", e);
-            });
-          }, 300);
-        }).catch(err => {
-          console.error("Failed to inject content script dynamically: ", err);
-        });
-      });
+// Listen for global shortcut keys
+chrome.commands.onCommand.addListener((command) => {
+  console.log(`Shortcut key command triggered: ${command}`);
+  if (command === "play-selection" || command === "intensive-listening") {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      if (!tabs || !tabs[0] || !tabs[0].id) return;
+      
+      // For shortcuts, let content script fetch selection directly using window.getSelection()
+      handleSelectionAction(tabs[0].id, command, null);
+    });
   }
 });

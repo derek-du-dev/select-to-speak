@@ -17,10 +17,86 @@ function getApiUrl() {
   return isDev ? DEV_API_URL : PROD_API_URL;
 }
 
+const TRANSLATIONS = {
+  zh: {
+    // Floating player
+    player_title: "朗读模式",
+    player_back_5: "后退5秒",
+    player_fwd_5: "前进5秒",
+    player_generating: "生成音频中...",
+    player_buffering: "缓冲中...",
+    player_ready: "已就绪",
+    player_playing: "播放中",
+    player_fetching: "获取音频...",
+    player_paused: "已暂停",
+    player_finished: "播毕",
+    player_failed: "获取失败",
+    player_waiting: "等待播放",
+    // Intensive Drawer
+    drawer_title: "英语精听模式",
+    drawer_subtitle: "spaCy 自动分句器 · 逐句精读训练",
+    drawer_splitting: "spaCy 正在智能切分句子，请稍候...",
+    drawer_loop_on: "单句循环 (开启)",
+    drawer_loop_off: "单句循环 (关闭)",
+    drawer_prev: "上一句",
+    drawer_next: "下一句",
+    drawer_replay: "重播当前句",
+    drawer_curr_sentence: "第 {curr} / {total} 句",
+    drawer_cache_title: "正在极速缓存语音...",
+    drawer_cache_progress: "已缓存: {loaded} / {total} 句",
+    drawer_cache_desc: "为了保证您极速、零延迟的精听体验，我们正在为您提前加载前 {count} 句高品质语音。",
+    drawer_api_failed: "API 服务连接失败",
+    drawer_api_failed_desc: "无法载入句子，请确认 apps/api FastAPI 本地后端已启动运行。",
+    drawer_retry: "⚡ 立即重试"
+  },
+  en: {
+    // Floating player
+    player_title: "Reading Mode",
+    player_back_5: "Back 5 seconds",
+    player_fwd_5: "Forward 5 seconds",
+    player_generating: "Generating...",
+    player_buffering: "Buffering...",
+    player_ready: "Ready",
+    player_playing: "Playing",
+    player_fetching: "Fetching audio...",
+    player_paused: "Paused",
+    player_finished: "Finished",
+    player_failed: "Failed",
+    player_waiting: "Waiting to play",
+    // Intensive Drawer
+    drawer_title: "Intensive Listening",
+    drawer_subtitle: "spaCy Splitter · Sentence-by-Sentence",
+    drawer_splitting: "spaCy is segmenting sentences, please wait...",
+    drawer_loop_on: "Loop Sentence (On)",
+    drawer_loop_off: "Loop Sentence (Off)",
+    drawer_prev: "Previous Sentence",
+    drawer_next: "Next Sentence",
+    drawer_replay: "Replay Sentence",
+    drawer_curr_sentence: "Sentence {curr} / {total}",
+    drawer_cache_title: "Preloading speech audio...",
+    drawer_cache_progress: "Preloaded: {loaded} / {total} sentences",
+    drawer_cache_desc: "To guarantee a latency-free intensive listening experience, we are preloading the first {count} high-quality sentences.",
+    drawer_api_failed: "API Connection Failed",
+    drawer_api_failed_desc: "Failed to load sentences. Please confirm the apps/api FastAPI backend is running.",
+    drawer_retry: "⚡ Retry Now"
+  }
+};
+
+// Helper to resolve current language preference
+function getLanguage(storedLang) {
+  const lang = storedLang || "auto";
+  if (lang === "auto") {
+    const uiLang = chrome.i18n.getUILanguage().toLowerCase();
+    return uiLang.startsWith("zh") ? "zh" : "en";
+  }
+  return lang;
+}
+
 let ttsSettings = {
   apiUrl: getApiUrl(),
   voice: "en-US-AvaNeural",
-  rate: "+0%"
+  rate: "+0%",
+  language: "auto"
 };
 
 // Clear preloaded audio cache to prevent memory leaks
@@ -94,18 +170,19 @@ function initShadowDOM() {
   return shadowRoot;
 }
 
-// Load user configurations from storage defensively
 async function loadSettings() {
   return new Promise((resolve) => {
     chrome.storage.sync.get({
       voice: "en-US-AvaNeural",
-      rate: "+0%"
+      rate: "+0%",
+      language: "auto"
     }, (items) => {
       // Force the API URL to be the hardcoded dev/prod address
       const safeItems = {
         apiUrl: getApiUrl(),
         voice: items.voice || "en-US-AvaNeural",
-        rate: items.rate || "+0%"
+        rate: items.rate || "+0%",
+        language: items.language || "auto"
       };
 
       // Strip trailing slash if present
@@ -176,6 +253,9 @@ function renderFloatingPlayer(text, x, y) {
     // Generate standard audio URL
     const ttsUrl = `${settings.apiUrl}/api/tts?text=${encodeURIComponent(text)}&rate=${encodeURIComponent(settings.rate)}&voice=${encodeURIComponent(settings.voice)}`;
     
+    const lang = getLanguage(settings.language);
+    const dict = TRANSLATIONS[lang] || TRANSLATIONS.en;
+
     // Create Player Element
     const player = document.createElement("div");
     player.id = "floating-player";
@@ -204,7 +284,7 @@ function renderFloatingPlayer(text, x, y) {
           <div class="bg-white p-0.5 rounded-lg shadow-sm border border-slate-100 overflow-hidden w-8 h-8 flex items-center justify-center">
             <img src="${chrome.runtime.getURL('assets/logo.png')}" alt="Logo" class="w-7 h-7 object-contain rounded">
           </div>
-          <span class="text-sm font-semibold text-slate-700 tracking-wide select-none">朗读模式</span>
+          <span class="text-sm font-semibold text-slate-700 tracking-wide select-none">${dict.player_title}</span>
           <span class="text-xs bg-indigo-50 text-indigo-600 font-mono font-medium px-2 py-0.5 rounded border border-indigo-100 select-none">${settings.rate}</span>
         </div>
         <button id="player-close" class="text-slate-400 hover:text-slate-600 hover:bg-slate-50 p-1 rounded-lg transition-all focus:outline-none">
@@ -223,7 +303,7 @@ function renderFloatingPlayer(text, x, y) {
       <div class="space-y-1">
         <div class="flex justify-between text-xs text-slate-500 font-mono">
           <span id="player-curr-time">0:00</span>
-          <span id="player-status">生成中...</span>
+          <span id="player-status">${dict.player_generating}</span>
           <span id="player-total-time">0:00</span>
         </div>
         <div id="player-progress-container" class="h-1.5 w-full bg-slate-100 rounded-full cursor-pointer relative group overflow-hidden">
@@ -233,7 +313,7 @@ function renderFloatingPlayer(text, x, y) {
 
       <!-- Controls -->
       <div class="flex items-center justify-center space-x-4 pt-1">
-        <button id="player-back-5" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-50 transition-all focus:outline-none" title="后退5秒">
+        <button id="player-back-5" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-50 transition-all focus:outline-none" title="${dict.player_back_5}">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12.066 11.2a1 1 0 000 1.6l5.334 4A1 1 0 0019 16V8a1 1 0 00-1.6-.8l-5.334 4zM4.066 11.2a1 1 0 000 1.6l5.334 4A1 1 0 0011 16V8a1 1 0 00-1.6-.8l-5.334 4z"></path>
           </svg>
@@ -255,7 +335,7 @@ function renderFloatingPlayer(text, x, y) {
           </svg>
         </button>
 
-        <button id="player-fwd-5" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-50 transition-all focus:outline-none" title="前进5秒">
+        <button id="player-fwd-5" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-50 transition-all focus:outline-none" title="${dict.player_fwd_5}">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.934 12.8a1 1 0 000-1.6L6.6 7.2A1 1 0 005 8v8a1 1 0 001.6.8l5.334-4zM19.934 12.8a1 1 0 000-1.6l-5.334-4A1 1 0 0013 8v8a1 1 0 001.6.8l5.334-4z"></path>
           </svg>
@@ -289,21 +369,21 @@ function renderFloatingPlayer(text, x, y) {
       spinner.classList.remove("hidden");
       playIcon.classList.add("hidden");
       pauseIcon.classList.add("hidden");
-      statusText.textContent = "生成音频中...";
+      statusText.textContent = dict.player_generating;
     });
 
     audio.addEventListener("waiting", () => {
       spinner.classList.remove("hidden");
       playIcon.classList.add("hidden");
       pauseIcon.classList.add("hidden");
-      statusText.textContent = "缓冲中...";
+      statusText.textContent = dict.player_buffering;
     });
 
     audio.addEventListener("canplaythrough", () => {
       spinner.classList.add("hidden");
       if (audio.paused) {
         playIcon.classList.remove("hidden");
-        statusText.textContent = "已就绪";
+        statusText.textContent = dict.player_ready;
       }
     });
 
@@ -311,7 +391,7 @@ function renderFloatingPlayer(text, x, y) {
       spinner.classList.add("hidden");
       playIcon.classList.add("hidden");
       pauseIcon.classList.remove("hidden");
-      statusText.textContent = "播放中";
+      statusText.textContent = dict.player_playing;
     });
 
     audio.addEventListener("play", () => {
@@ -319,14 +399,14 @@ function renderFloatingPlayer(text, x, y) {
       spinner.classList.remove("hidden");
       playIcon.classList.add("hidden");
       pauseIcon.classList.add("hidden");
-      statusText.textContent = "获取音频...";
+      statusText.textContent = dict.player_fetching;
     });
 
     audio.addEventListener("pause", () => {
       spinner.classList.add("hidden");
       pauseIcon.classList.add("hidden");
       playIcon.classList.remove("hidden");
-      statusText.textContent = "已暂停";
+      statusText.textContent = dict.player_paused;
     });
 
     audio.addEventListener("timeupdate", () => {
@@ -347,7 +427,7 @@ function renderFloatingPlayer(text, x, y) {
     audio.addEventListener("ended", () => {
       pauseIcon.classList.add("hidden");
       playIcon.classList.remove("hidden");
-      statusText.textContent = "播毕";
+      statusText.textContent = dict.player_finished;
       progressBar.style.width = "0%";
       audio.currentTime = 0;
     });
@@ -356,7 +436,7 @@ function renderFloatingPlayer(text, x, y) {
       console.error("Audio error: ", e);
       spinner.classList.add("hidden");
       playIcon.classList.remove("hidden");
-      statusText.textContent = "获取失败";
+      statusText.textContent = dict.player_failed;
       statusText.className = "text-xs font-semibold text-rose-500";
     });
 
@@ -367,7 +447,7 @@ function renderFloatingPlayer(text, x, y) {
       spinner.classList.add("hidden");
       playIcon.classList.remove("hidden");
       pauseIcon.classList.add("hidden");
-      statusText.textContent = "等待播放";
+      statusText.textContent = dict.player_waiting;
     });
 
     // Control clicks
@@ -482,176 +562,178 @@ function renderIntensiveDrawer(text) {
 
   console.log("Select-to-Speak: Starting to render intensive listening drawer.");
   
-  // Create backdrop element
-  const backdrop = document.createElement("div");
-  backdrop.id = "drawer-backdrop";
-  
-  // Apply fallback inline layout styles to ensure backdrop is 100% visible and positioned correctly
-  backdrop.style.position = "fixed";
-  backdrop.style.top = "0";
-  backdrop.style.left = "0";
-  backdrop.style.right = "0";
-  backdrop.style.bottom = "0";
-  backdrop.style.backgroundColor = "rgba(15, 23, 42, 0.3)";
-  backdrop.style.backdropFilter = "blur(1px)";
-  backdrop.style.pointerEvents = "auto";
-  backdrop.style.zIndex = "9999";
-  backdrop.style.transition = "opacity 300ms cubic-bezier(0.4, 0, 0.2, 1)";
-  backdrop.style.opacity = "0";
-  
-  // Create drawer panel (styled at w-[80%] of page width)
-  const drawer = document.createElement("div");
-  drawer.id = "intensive-drawer";
-  drawer.className = "max-w-full bg-white shadow-drawer border-l border-slate-100 flex flex-col pointer-events-auto";
-  
-  // Apply absolute layout inline styles to guarantee width, height, position, and background color
-  drawer.style.position = "fixed";
-  drawer.style.top = "0";
-  drawer.style.right = "0";
-  drawer.style.height = "100vh";
-  drawer.style.width = "80%";
-  drawer.style.maxWidth = "100%";
-  drawer.style.backgroundColor = "#ffffff";
-  drawer.style.boxShadow = "-10px 0 30px -5px rgba(0, 0, 0, 0.15)";
-  drawer.style.borderLeft = "1px solid #f1f5f9";
-  drawer.style.display = "flex";
-  drawer.style.flexDirection = "column";
-  drawer.style.pointerEvents = "auto";
-  drawer.style.zIndex = "10000";
-  drawer.style.transition = "transform 300ms cubic-bezier(0.4, 0, 0.2, 1)";
-  drawer.style.transform = "translateX(100%)";
-  
-  componentsRoot.appendChild(backdrop);
-  componentsRoot.appendChild(drawer);
-  console.log("Select-to-Speak: Drawer and backdrop appended to Shadow DOM.");
+  loadSettings().then(async (settings) => {
+    const lang = getLanguage(settings.language);
+    const dict = TRANSLATIONS[lang] || TRANSLATIONS.en;
 
-  // Trigger smooth slide-in animations
-  setTimeout(() => {
-    console.log("Select-to-Speak: Animating drawer slide-in.");
-    backdrop.style.opacity = "1";
-    drawer.style.transform = "translateX(0)";
-  }, 50);
+    // Create backdrop element
+    const backdrop = document.createElement("div");
+    backdrop.id = "drawer-backdrop";
+    
+    // Apply fallback inline layout styles to ensure backdrop is 100% visible and positioned correctly
+    backdrop.style.position = "fixed";
+    backdrop.style.top = "0";
+    backdrop.style.left = "0";
+    backdrop.style.right = "0";
+    backdrop.style.bottom = "0";
+    backdrop.style.backgroundColor = "rgba(15, 23, 42, 0.3)";
+    backdrop.style.backdropFilter = "blur(1px)";
+    backdrop.style.pointerEvents = "auto";
+    backdrop.style.zIndex = "9999";
+    backdrop.style.transition = "opacity 300ms cubic-bezier(0.4, 0, 0.2, 1)";
+    backdrop.style.opacity = "0";
+    
+    // Create drawer panel (styled at w-[80%] of page width)
+    const drawer = document.createElement("div");
+    drawer.id = "intensive-drawer";
+    drawer.className = "max-w-full bg-white shadow-drawer border-l border-slate-100 flex flex-col pointer-events-auto";
+    
+    // Apply absolute layout inline styles to guarantee width, height, position, and background color
+    drawer.style.position = "fixed";
+    drawer.style.top = "0";
+    drawer.style.right = "0";
+    drawer.style.height = "100vh";
+    drawer.style.width = "80%";
+    drawer.style.maxWidth = "100%";
+    drawer.style.backgroundColor = "#ffffff";
+    drawer.style.boxShadow = "-10px 0 30px -5px rgba(0, 0, 0, 0.15)";
+    drawer.style.borderLeft = "1px solid #f1f5f9";
+    drawer.style.display = "flex";
+    drawer.style.flexDirection = "column";
+    drawer.style.pointerEvents = "auto";
+    drawer.style.zIndex = "10000";
+    drawer.style.transition = "transform 300ms cubic-bezier(0.4, 0, 0.2, 1)";
+    drawer.style.transform = "translateX(100%)";
+    
+    componentsRoot.appendChild(backdrop);
+    componentsRoot.appendChild(drawer);
+    console.log("Select-to-Speak: Drawer and backdrop appended to Shadow DOM.");
 
-  // Render Skeleton UI inside drawer while splitting
-  drawer.innerHTML = `
-    <!-- Header -->
-    <div class="p-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-brand-50/50 to-indigo-50/30">
-      <div class="flex items-center space-x-3">
-        <div class="bg-white p-0.5 rounded-xl shadow-sm border border-slate-100 overflow-hidden w-9 h-9 flex items-center justify-center">
-          <img src="${chrome.runtime.getURL('assets/logo.png')}" alt="Logo" class="w-8 h-8 object-contain rounded-lg">
-        </div>
-        <div>
-          <h2 class="font-bold text-slate-900 leading-tight">英语精听模式</h2>
-          <p class="text-[10px] text-slate-400 font-medium mt-0.5">spaCy 自动分句器 · 逐句精读训练</p>
-        </div>
-      </div>
-      <button id="drawer-close" class="text-slate-400 hover:text-slate-600 hover:bg-slate-50 p-1.5 rounded-xl transition-all focus:outline-none">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-        </svg>
-      </button>
-    </div>
+    // Trigger smooth slide-in animations
+    setTimeout(() => {
+      console.log("Select-to-Speak: Animating drawer slide-in.");
+      backdrop.style.opacity = "1";
+      drawer.style.transform = "translateX(0)";
+    }, 50);
 
-    <!-- Content / Sentence Container (Scrollable) -->
-    <div id="drawer-scroll-container" class="flex-1 overflow-y-auto p-6 pb-36 space-y-4">
-      <div id="sentences-loading" class="flex flex-col items-center justify-center py-24 space-y-4">
-        <svg class="animate-spin w-8 h-8 text-brand-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
-        <span class="text-xs font-semibold text-slate-400">spaCy 正在智能切分句子，请稍候...</span>
-      </div>
-      
-      <div id="sentences-list" class="space-y-4 hidden"></div>
-    </div>
-
-    <!-- Floating Footer Player Controls (Fixed) -->
-    <div id="drawer-footer-player" class="absolute bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-100 shadow-premium p-5 z-20 flex flex-col space-y-3.5 hidden">
-      <!-- Sentence Progress Track -->
-      <div class="space-y-1">
-        <div class="flex justify-between text-xs text-slate-500 font-mono">
-          <span id="footer-curr-time">0:00</span>
-          <span id="footer-sentence-indicator">第 0 / 0 句</span>
-          <span id="footer-total-time">0:00</span>
+    // Render Skeleton UI inside drawer while splitting
+    drawer.innerHTML = `
+      <!-- Header -->
+      <div class="p-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-brand-50/50 to-indigo-50/30">
+        <div class="flex items-center space-x-3">
+          <div class="bg-white p-0.5 rounded-xl shadow-sm border border-slate-100 overflow-hidden w-9 h-9 flex items-center justify-center">
+            <img src="${chrome.runtime.getURL('assets/logo.png')}" alt="Logo" class="w-8 h-8 object-contain rounded-lg">
+          </div>
+          <div>
+            <h2 class="font-bold text-slate-900 leading-tight">${dict.drawer_title}</h2>
+            <p class="text-[10px] text-slate-400 font-medium mt-0.5">${dict.drawer_subtitle}</p>
+          </div>
         </div>
-        <div id="footer-progress-container" class="h-1.5 w-full bg-slate-100 rounded-full cursor-pointer relative overflow-hidden group">
-          <div id="footer-progress-bar" class="h-full bg-brand-600 w-0 rounded-full transition-all duration-75"></div>
-        </div>
+        <button id="drawer-close" class="text-slate-400 hover:text-slate-600 hover:bg-slate-50 p-1.5 rounded-xl transition-all focus:outline-none">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+        </button>
       </div>
 
-      <!-- Controls row -->
-      <div class="flex items-center justify-between">
-        <!-- Info display / rate -->
-        <div class="flex flex-col space-y-0.5 max-w-[120px] select-none">
-          <span id="footer-voice-name" class="text-xs text-slate-600 font-semibold truncate">AvaNeural</span>
-          <div class="flex items-center space-x-1.5">
-            <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping"></span>
-            <span class="text-[11px] text-slate-600 font-mono tracking-wider font-bold uppercase">ONLINE</span>
+      <!-- Content / Sentence Container (Scrollable) -->
+      <div id="drawer-scroll-container" class="flex-1 overflow-y-auto p-6 pb-36 space-y-4">
+        <div id="sentences-loading" class="flex flex-col items-center justify-center py-24 space-y-4">
+          <svg class="animate-spin w-8 h-8 text-brand-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <span class="text-xs font-semibold text-slate-400">${dict.drawer_splitting}</span>
+        </div>
+        
+        <div id="sentences-list" class="space-y-4 hidden"></div>
+      </div>
+
+      <!-- Floating Footer Player Controls (Fixed) -->
+      <div id="drawer-footer-player" class="absolute bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-100 shadow-premium p-5 z-20 flex flex-col space-y-3.5 hidden">
+        <!-- Sentence Progress Track -->
+        <div class="space-y-1">
+          <div class="flex justify-between text-xs text-slate-500 font-mono">
+            <span id="footer-curr-time">0:00</span>
+            <span id="footer-sentence-indicator">第 0 / 0 句</span>
+            <span id="footer-total-time">0:00</span>
+          </div>
+          <div id="footer-progress-container" class="h-1.5 w-full bg-slate-100 rounded-full cursor-pointer relative overflow-hidden group">
+            <div id="footer-progress-bar" class="h-full bg-brand-600 w-0 rounded-full transition-all duration-75"></div>
           </div>
         </div>
 
-        <!-- Central Buttons -->
-        <div class="flex items-center space-x-4">
-          <!-- Loop Toggle button -->
-          <button id="footer-loop-btn" class="text-slate-400 hover:text-brand-600 p-2 rounded-xl transition-all focus:outline-none" title="单句循环">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 8H18.2M7 17v-5H6.582m15.356-2a8.001 8.001 0 11-15.356 2H3.8"></path>
-            </svg>
-          </button>
+        <!-- Controls row -->
+        <div class="flex items-center justify-between">
+          <!-- Info display / rate -->
+          <div class="flex flex-col space-y-0.5 max-w-[120px] select-none">
+            <span id="footer-voice-name" class="text-xs text-slate-600 font-semibold truncate">AvaNeural</span>
+            <div class="flex items-center space-x-1.5">
+              <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping"></span>
+              <span class="text-[11px] text-slate-600 font-mono tracking-wider font-bold uppercase">ONLINE</span>
+            </div>
+          </div>
 
-          <!-- Prev sentence -->
-          <button id="footer-prev-btn" class="text-slate-500 hover:text-slate-800 p-2 rounded-xl hover:bg-slate-50 active:scale-95 transition-all focus:outline-none" title="上一句">
-            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M8.445 14.832A1 1 0 0010 14v-2.798l5.445 3.63A1 1 0 0017 14V6a1 1 0 00-1.555-.832L10 8.798V6a1 1 0 00-1.555-.832l-6 4a1 1 0 000 1.664l6 4z"></path>
-            </svg>
-          </button>
+          <!-- Central Buttons -->
+          <div class="flex items-center space-x-4">
+            <!-- Loop Toggle button -->
+            <button id="footer-loop-btn" class="text-slate-400 hover:text-brand-600 p-2 rounded-xl transition-all focus:outline-none" title="${dict.drawer_loop_off}">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 8H18.2M7 17v-5H6.582m15.356-2a8.001 8.001 0 11-15.356 2H3.8"></path>
+              </svg>
+            </button>
 
-          <!-- Play/Pause -->
-          <button id="footer-play-btn" class="bg-brand-600 hover:bg-brand-700 text-white rounded-2xl p-3 shadow-md shadow-brand-500/10 active:scale-95 hover:shadow-lg transition-all focus:outline-none flex items-center justify-center w-11 h-11">
-            <!-- Spinner -->
-            <svg id="f-spinner" class="animate-spin w-5 h-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            <!-- Play icon -->
-            <svg id="f-play" class="w-5 h-5 hidden" fill="currentColor" viewBox="0 0 20 20">
-              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path>
-            </svg>
-            <!-- Pause icon -->
-            <svg id="f-pause" class="w-5 h-5 hidden" fill="currentColor" viewBox="0 0 20 20">
-              <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path>
-            </svg>
-          </button>
+            <!-- Prev sentence -->
+            <button id="footer-prev-btn" class="text-slate-500 hover:text-slate-800 p-2 rounded-xl hover:bg-slate-50 active:scale-95 transition-all focus:outline-none" title="${dict.drawer_prev}">
+              <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M8.445 14.832A1 1 0 0010 14v-2.798l5.445 3.63A1 1 0 0017 14V6a1 1 0 00-1.555-.832L10 8.798V6a1 1 0 00-1.555-.832l-6 4a1 1 0 000 1.664l6 4z"></path>
+              </svg>
+            </button>
 
-          <!-- Next sentence -->
-          <button id="footer-next-btn" class="text-slate-500 hover:text-slate-800 p-2 rounded-xl hover:bg-slate-50 active:scale-95 transition-all focus:outline-none" title="下一句">
-            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M4.555 5.168A1 1 0 003 6v8a1 1 0 001.555.832L10 11.202V14a1 1 0 001.555.832l6-4a1 1 0 000-1.664l-6-4A1 1 0 0010 6v2.798L4.555 5.168z"></path>
-            </svg>
-          </button>
+            <!-- Play/Pause -->
+            <button id="footer-play-btn" class="bg-brand-600 hover:bg-brand-700 text-white rounded-2xl p-3 shadow-md shadow-brand-500/10 active:scale-95 hover:shadow-lg transition-all focus:outline-none flex items-center justify-center w-11 h-11">
+              <!-- Spinner -->
+              <svg id="f-spinner" class="animate-spin w-5 h-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              <!-- Play icon -->
+              <svg id="f-play" class="w-5 h-5 hidden" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path>
+              </svg>
+              <!-- Pause icon -->
+              <svg id="f-pause" class="w-5 h-5 hidden" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+              </svg>
+            </button>
 
-          <!-- Speed Display -->
-          <span id="footer-speed-badge" class="text-xs bg-slate-100 text-slate-700 font-mono font-bold px-2 py-1 rounded border border-slate-200 select-none">${ttsSettings.rate}</span>
+            <!-- Next sentence -->
+            <button id="footer-next-btn" class="text-slate-500 hover:text-slate-800 p-2 rounded-xl hover:bg-slate-50 active:scale-95 transition-all focus:outline-none" title="${dict.drawer_next}">
+              <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M4.555 5.168A1 1 0 003 6v8a1 1 0 001.555.832L10 11.202V14a1 1 0 001.555.832l6-4a1 1 0 000-1.664l-6-4A1 1 0 0010 6v2.798L4.555 5.168z"></path>
+              </svg>
+            </button>
+
+            <!-- Speed Display -->
+            <span id="footer-speed-badge" class="text-xs bg-slate-100 text-slate-700 font-mono font-bold px-2 py-1 rounded border border-slate-200 select-none">${settings.rate}</span>
+          </div>
+
+          <!-- Replay Sentence Button -->
+          <button id="footer-replay-btn" class="text-slate-500 hover:text-brand-600 flex items-center space-x-1 hover:bg-brand-50 border border-slate-200/50 hover:border-brand-200 px-3 py-1.5 rounded-xl transition-all active:scale-95 focus:outline-none" title="${dict.drawer_replay}">
+            <svg class="w-4 h-4 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 8H18.2"></path>
+            </svg>
+            <span class="text-xs font-semibold text-slate-600 group-hover:text-brand-600">${lang === 'zh' ? '重播' : 'Replay'}</span>
+          </button>
         </div>
-
-        <!-- Replay Sentence Button -->
-        <button id="footer-replay-btn" class="text-slate-500 hover:text-brand-600 flex items-center space-x-1 hover:bg-brand-50 border border-slate-200/50 hover:border-brand-200 px-3 py-1.5 rounded-xl transition-all active:scale-95 focus:outline-none" title="重播当前句">
-          <svg class="w-4 h-4 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 8H18.2"></path>
-          </svg>
-          <span class="text-xs font-semibold text-slate-600 group-hover:text-brand-600">重播</span>
-        </button>
       </div>
-    </div>
-  `;
+    `;
 
-  // Bind close buttons right away
-  const closeBtn = drawer.querySelector("#drawer-close");
-  closeBtn.addEventListener("click", () => removeDrawer(false));
-  backdrop.addEventListener("click", () => removeDrawer(false));
+    // Bind close buttons right away
+    const closeBtn = drawer.querySelector("#drawer-close");
+    closeBtn.addEventListener("click", () => removeDrawer(false));
+    backdrop.addEventListener("click", () => removeDrawer(false));
 
-  // Load Settings and request sentence segmenting
-  loadSettings().then(async (settings) => {
     // Fill initial settings info defensively
     const voiceField = drawer.querySelector("#footer-voice-name");
     if (voiceField && settings.voice) {
@@ -768,9 +850,9 @@ function renderIntensiveDrawer(text) {
           </div>
         </div>
         <div class="text-center space-y-2">
-          <h3 class="font-bold text-slate-900 text-base">正在极速缓存语音...</h3>
-          <p id="initial-preload-progress" class="text-sm text-slate-600 font-medium">已缓存: 0 / 0 句</p>
-          <div class="text-xs text-slate-500 max-w-[280px] leading-relaxed mx-auto">为了保证您极速、零延迟的精听体验，我们正在为您提前加载前 5 句高品质语音。</div>
+          <h3 class="font-bold text-slate-900 text-base">${dict.drawer_cache_title}</h3>
+          <p id="initial-preload-progress" class="text-sm text-slate-600 font-medium">${dict.drawer_cache_progress.replace("{loaded}", "0").replace("{total}", Math.min(5, sentencesList.length))}</p>
+          <div class="text-xs text-slate-500 max-w-[280px] leading-relaxed mx-auto">${dict.drawer_cache_desc.replace("{count}", Math.min(5, sentencesList.length))}</div>
         </div>
       `;
       drawer.appendChild(preloadOverlay);
@@ -780,8 +862,6 @@ function renderIntensiveDrawer(text) {
       const ring = preloadOverlay.querySelector("#preload-progress-ring");
       const progressText = preloadOverlay.querySelector("#initial-preload-progress");
 
-      progressText.textContent = `已缓存: 0 / ${initialCount} 句`;
-
       let loadedCount = 0;
       const preloadPromises = [];
 
@@ -790,14 +870,14 @@ function renderIntensiveDrawer(text) {
           preloadSentence(i, settings)
             .then(() => {
               loadedCount++;
-              progressText.textContent = `已缓存: ${loadedCount} / ${initialCount} 句`;
+              progressText.textContent = dict.drawer_cache_progress.replace("{loaded}", loadedCount).replace("{total}", initialCount);
               const offset = 213.6 - ((loadedCount / initialCount) * 213.6);
               if (ring) ring.style.strokeDashoffset = offset.toString();
             })
             .catch((err) => {
               console.warn(`Initial preload failed for sentence ${i}:`, err);
               loadedCount++;
-              progressText.textContent = `已缓存: ${loadedCount} / ${initialCount} 句`;
+              progressText.textContent = dict.drawer_cache_progress.replace("{loaded}", loadedCount).replace("{total}", initialCount);
               const offset = 213.6 - ((loadedCount / initialCount) * 213.6);
               if (ring) ring.style.strokeDashoffset = offset.toString();
             })
@@ -834,13 +914,13 @@ function renderIntensiveDrawer(text) {
             <svg class="w-10 h-10 text-rose-500 mx-auto animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
             </svg>
-            <div class="text-xs font-semibold text-rose-800">API 服务连接失败</div>
+            <div class="text-xs font-semibold text-rose-800">${dict.drawer_api_failed}</div>
             <div class="text-[11px] text-rose-600 leading-normal">
-              无法载入句子，请确认 apps/api FastAPI 本地后端已启动运行。<br>
+              ${dict.drawer_api_failed_desc}<br>
               接口地址: <span class="font-mono text-rose-700 bg-rose-100/50 px-1 rounded">${settings.apiUrl}</span>
             </div>
             <button id="drawer-retry-btn" class="bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-semibold px-4 py-2 rounded-xl transition-all shadow active:scale-95 focus:outline-none">
-              ⚡ 立即重试
+              ${dict.drawer_retry}
             </button>
           </div>
         `;
@@ -906,6 +986,9 @@ function updateSentencePreloadStatusUI(index, status) {
   const indicatorContainer = item.querySelector(".preload-status-indicator");
   if (!indicatorContainer) return;
 
+  const lang = getLanguage(ttsSettings.language);
+  const isZH = lang === 'zh';
+
   if (status === 'loading') {
     indicatorContainer.innerHTML = `
       <span class="flex h-1.5 w-1.5 relative">
@@ -913,23 +996,23 @@ function updateSentencePreloadStatusUI(index, status) {
         <span class="relative inline-flex rounded-full h-1.5 w-1.5 bg-brand-500"></span>
       </span>
     `;
-    indicatorContainer.title = "正在缓冲语音...";
+    indicatorContainer.title = isZH ? "正在缓冲语音..." : "Buffering audio...";
   } else if (status === 'loaded') {
     indicatorContainer.innerHTML = `
       <span class="inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
     `;
-    indicatorContainer.title = "已预加载（零延迟播放）";
+    indicatorContainer.title = isZH ? "已预加载（零延迟播放）" : "Preloaded (zero latency)";
   } else if (status === 'error') {
     indicatorContainer.innerHTML = `
       <span class="inline-flex rounded-full h-1.5 w-1.5 bg-rose-500 animate-pulse"></span>
     `;
-    indicatorContainer.title = "缓冲失败，点击可重试";
+    indicatorContainer.title = isZH ? "缓冲失败，点击可重试" : "Preload failed, click to retry";
   } else {
     // Default / pending
     indicatorContainer.innerHTML = `
       <span class="inline-flex rounded-full h-1.5 w-1.5 bg-slate-300"></span>
     `;
-    indicatorContainer.title = "等待加载中";
+    indicatorContainer.title = isZH ? "等待加载中" : "Pending preload";
   }
 }
 
@@ -1001,13 +1084,15 @@ function initDrawerPlayerControls(drawer) {
 
   // Loop toggle
   loopBtn.addEventListener("click", () => {
+    const lang = getLanguage(ttsSettings.language);
+    const dict = TRANSLATIONS[lang] || TRANSLATIONS.en;
     loopEnabled = !loopEnabled;
     if (loopEnabled) {
       loopBtn.className = "text-brand-600 hover:text-brand-700 bg-brand-50 p-2 rounded-xl border border-brand-200 shadow-sm transition-all focus:outline-none";
-      loopBtn.title = "单句循环 (开启)";
+      loopBtn.title = dict.drawer_loop_on;
     } else {
       loopBtn.className = "text-slate-400 hover:text-brand-600 p-2 rounded-xl transition-all focus:outline-none";
-      loopBtn.title = "单句循环 (关闭)";
+      loopBtn.title = dict.drawer_loop_off;
     }
   });
 
@@ -1086,7 +1171,9 @@ function playSentence(index) {
   fSpinner.classList.remove("hidden");
 
   // Update indices text
-  indicator.textContent = `第 ${index + 1} / ${sentencesList.length} 句`;
+  const lang = getLanguage(ttsSettings.language);
+  const dict = TRANSLATIONS[lang] || TRANSLATIONS.en;
+  indicator.textContent = dict.drawer_curr_sentence.replace("{curr}", index + 1).replace("{total}", sentencesList.length);
 
   // Retrieve cached url or download on-demand if missing
   const getAudioUrl = async () => {
@@ -1209,7 +1296,23 @@ function formatTime(seconds) {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log("Injected script received command: ", message);
 
-  const { action, text } = message;
+  const { action } = message;
+  let text = message.text;
+
+  // Fallback to page text selection if text is not provided (triggered by global shortcuts)
+  if (!text) {
+    try {
+      text = window.getSelection().toString().trim();
+    } catch (e) {
+      console.warn("Failed to retrieve selection text dynamically: ", e);
+    }
+  }
+
+  if (!text) {
+    console.log("No text provided and no page selection active.");
+    sendResponse({ status: "no_selection" });
+    return true;
+  }
 
   if (action === "play-selection") {
     // Calculate selection coordinates to place player near cursor

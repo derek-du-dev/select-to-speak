@@ -3,6 +3,7 @@
 // DOM elements
 const voiceSelect = document.getElementById("voice");
 const rateInput = document.getElementById("rate");
+const languageSelect = document.getElementById("language");
 const saveBtn = document.getElementById("save");
 const testBtn = document.getElementById("testConnection");
 const statusText = document.getElementById("status");
@@ -10,8 +11,90 @@ const statusText = document.getElementById("status");
 // Default configurations
 const DEFAULTS = {
   voice: "en-US-AvaNeural",
-  rate: "+0%"
+  rate: "+0%",
+  language: "auto"
 };
+
+// Translations Dictionary
+const TRANSLATIONS = {
+  zh: {
+    doc_title: "Select-to-Speak 设置中心",
+    header_subtitle: "英语精听与朗读助手设置中心",
+    tts_settings_title: "TTS 语音设置",
+    voice_label: "微软 Edge 默认发音人",
+    rate_label: "语速调节 (Rate)",
+    lang_settings_title: "界面语言设置",
+    lang_label: "选择显示语言",
+    lang_auto: "跟随浏览器系统 (Auto)",
+    lang_zh: "简体中文",
+    lang_en: "English",
+    instructions_title: "💡 如何设置语速 (Rate) 说明：",
+    instructions_desc: "`edge-tts` 支持通过相对百分比来微调发音的速度。您可以在语速输入框中填写符合规范的字符串：",
+    instruction_fast: "语速加速 10% 或 20%，适合进阶听力训练",
+    instruction_default: "标准原生语速，微软小娜默认音速",
+    instruction_slow: "语速减速 10% 或 20%，适合初学者精听单词",
+    btn_test: "⚡ 测试后端连接",
+    btn_save: "保存配置",
+    status_saved: "保存成功！",
+    status_connecting: "⚡ 连接中...",
+    status_connect_ok: "连接成功!",
+    status_connect_failed: "连接失败，请检查服务是否开启！"
+  },
+  en: {
+    doc_title: "Select-to-Speak Settings Center",
+    header_subtitle: "English Intensive Listening & Reading Assistant Settings Center",
+    tts_settings_title: "TTS Voice Settings",
+    voice_label: "Microsoft Edge Default Voice",
+    rate_label: "Speech Rate (Rate)",
+    lang_settings_title: "Language Settings",
+    lang_label: "Choose Interface Language",
+    lang_auto: "Browser Language (Auto)",
+    lang_zh: "简体中文 (Simplified Chinese)",
+    lang_en: "English",
+    instructions_title: "💡 Speech Rate (Rate) Instructions:",
+    instructions_desc: "`edge-tts` supports relative percentages to fine-tune speech speed. Enter strings matching standard formats:",
+    instruction_fast: "Accelerate 10% or 20%, suitable for advanced listening training",
+    instruction_default: "Standard default speech rate",
+    instruction_slow: "Decelerate 10% or 20%, suitable for beginner intensive learning",
+    btn_test: "⚡ Test Connection",
+    btn_save: "Save Settings",
+    status_saved: "Saved successfully!",
+    status_connecting: "⚡ Connecting...",
+    status_connect_ok: "Connected successfully!",
+    status_connect_failed: "Connection failed, check if the backend service is running!"
+  }
+};
+
+// Helper to resolve current language preference
+function getLanguage(storedLang) {
+  const lang = storedLang || "auto";
+  if (lang === "auto") {
+    const uiLang = chrome.i18n.getUILanguage().toLowerCase();
+    return uiLang.startsWith("zh") ? "zh" : "en";
+  }
+  return lang;
+}
+
+// Function to translate the options page dynamically
+function translateUI(lang) {
+  const resolvedLang = getLanguage(lang);
+  const dict = TRANSLATIONS[resolvedLang] || TRANSLATIONS.en;
+  
+  // Set document title
+  document.title = dict.doc_title;
+  
+  // Translate other elements
+  document.querySelectorAll("[data-i18n]").forEach(element => {
+    const key = element.getAttribute("data-i18n");
+    if (dict[key]) {
+      if (element.tagName === "INPUT" || element.tagName === "TEXTAREA") {
+        element.placeholder = dict[key];
+      } else {
+        element.textContent = dict[key];
+      }
+    }
+  });
+}
 
 // Get the hardcoded API URL based on runtime environment (development or production)
 function getApiUrl() {
@@ -25,6 +108,10 @@ function getApiUrl() {
 document.addEventListener("DOMContentLoaded", () => {
   chrome.storage.sync.get(DEFAULTS, (settings) => {
     rateInput.value = settings.rate;
+    languageSelect.value = settings.language;
+    
+    // Apply initial translation
+    translateUI(settings.language);
     
     // Select the saved voice
     loadVoices(getApiUrl(), settings.voice);
@@ -53,8 +140,7 @@ async function loadVoices(apiUrl, selectedVoice) {
     }
   } catch (err) {
     console.warn("Could not fetch voices from backend, using static fallback options: ", err);
-    // Keep standard static HTML options in place
-    // Ensure selected is set correctly
+    // Keep standard static HTML options in place and ensure selected is correct
     Array.from(voiceSelect.options).forEach(option => {
       if (option.value === selectedVoice) {
         option.selected = true;
@@ -66,6 +152,7 @@ async function loadVoices(apiUrl, selectedVoice) {
 // Save options
 saveBtn.addEventListener("click", () => {
   const voice = voiceSelect.value;
+  const language = languageSelect.value;
   
   let rate = rateInput.value.trim() || DEFAULTS.rate;
   // Auto-format rate: if it's a number, prepend + and append %
@@ -76,9 +163,15 @@ saveBtn.addEventListener("click", () => {
   }
   rateInput.value = rate;
 
-  chrome.storage.sync.set({ voice, rate }, () => {
+  chrome.storage.sync.set({ voice, rate, language }, () => {
+    // Re-apply translations in case language changed
+    translateUI(language);
+    
     // Show success transition
-    statusText.textContent = "保存成功！";
+    const resolvedLang = getLanguage(language);
+    const dict = TRANSLATIONS[resolvedLang] || TRANSLATIONS.en;
+    
+    statusText.textContent = dict.status_saved;
     statusText.className = "text-xs font-medium text-emerald-600 opacity-100 transition-all duration-300 transform translate-x-0";
     
     setTimeout(() => {
@@ -90,9 +183,12 @@ saveBtn.addEventListener("click", () => {
 // Test Connection
 testBtn.addEventListener("click", async () => {
   const apiUrl = getApiUrl();
+  const language = languageSelect.value;
+  const resolvedLang = getLanguage(language);
+  const dict = TRANSLATIONS[resolvedLang] || TRANSLATIONS.en;
 
   testBtn.disabled = true;
-  testBtn.textContent = "⚡ 连接中...";
+  testBtn.textContent = dict.status_connecting;
 
   try {
     const start = Date.now();
@@ -100,7 +196,7 @@ testBtn.addEventListener("click", async () => {
     const duration = Date.now() - start;
 
     if (res.ok) {
-      statusText.textContent = `连接成功! (${duration}ms)`;
+      statusText.textContent = `${dict.status_connect_ok} (${duration}ms)`;
       statusText.className = "text-xs font-medium text-emerald-600 opacity-100 transition-all duration-300 transform translate-x-0";
       
       // Reload voices list based on successful connection
@@ -110,11 +206,11 @@ testBtn.addEventListener("click", async () => {
     }
   } catch (err) {
     console.error("Connection failed: ", err);
-    statusText.textContent = "连接失败，请检查服务是否开启！";
+    statusText.textContent = dict.status_connect_failed;
     statusText.className = "text-xs font-medium text-rose-600 opacity-100 transition-all duration-300 transform translate-x-0";
   } finally {
     testBtn.disabled = false;
-    testBtn.textContent = "⚡ 测试后端连接";
+    testBtn.textContent = dict.btn_test;
     
     setTimeout(() => {
       statusText.className = "text-xs font-medium text-slate-600 opacity-0 transition-all duration-300 transform translate-x-2";

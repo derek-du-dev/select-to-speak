@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <title>Select-to-Speak 设置中心</title>
+  <title data-i18n="doc_title">Select-to-Speak 设置中心</title>
   <script>
     (function() {
       const isCN = (function() {
@@ -37,7 +37,7 @@
         </div>
         <div>
           <h1 class="text-2xl font-bold tracking-tight">Select-to-Speak</h1>
-          <p class="text-white/80 text-sm mt-1">英语精听与朗读助手设置中心</p>
+          <p class="text-white/80 text-sm mt-1" data-i18n="header_subtitle">英语精听与朗读助手设置中心</p>
         </div>
       </div>
     </div>
@@ -50,12 +50,12 @@
       <div class="space-y-4">
         <h2 class="text-lg font-semibold text-slate-900 flex items-center space-x-2">
           <span class="w-1 h-5 bg-brand-600 rounded-full"></span>
-          <span>TTS 语音设置</span>
+          <span data-i18n="tts_settings_title">TTS 语音设置</span>
         </h2>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
           <!-- Voice Select -->
           <div>
-            <label for="voice" class="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">微软 Edge 默认发音人</label>
+            <label for="voice" class="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-2" data-i18n="voice_label">微软 Edge 默认发音人</label>
             <select id="voice" name="voice" 
                     class="block w-full rounded-xl border border-slate-200 bg-slate-50/50 py-3 px-4 text-slate-800 focus:border-brand-500 focus:bg-white focus:ring-2 focus:ring-brand-100 transition-all outline-none text-sm">
               <!-- Dynamically populated or fallback -->
@@ -70,9 +70,28 @@
 
           <!-- Speed Rate -->
           <div>
-            <label for="rate" class="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">语速调节 (Rate)</label>
+            <label for="rate" class="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-2" data-i18n="rate_label">语速调节 (Rate)</label>
             <input type="text" id="rate" name="rate" placeholder="+0%" 
                    class="block w-full rounded-xl border border-slate-200 bg-slate-50/50 py-3 px-4 text-slate-800 focus:border-brand-500 focus:bg-white focus:ring-2 focus:ring-brand-100 transition-all outline-none text-sm font-mono">
+          </div>
+        </div>
+      </div>
+
+      <!-- Language Preference Section -->
+      <div class="space-y-4 pt-6 border-t border-slate-100">
+        <h2 class="text-lg font-semibold text-slate-900 flex items-center space-x-2">
+          <span class="w-1 h-5 bg-brand-600 rounded-full"></span>
+          <span data-i18n="lang_settings_title">界面语言设置</span>
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label for="language" class="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-2" data-i18n="lang_label">选择显示语言</label>
+            <select id="language" name="language" 
+                    class="block w-full rounded-xl border border-slate-200 bg-slate-50/50 py-3 px-4 text-slate-800 focus:border-brand-500 focus:bg-white focus:ring-2 focus:ring-brand-100 transition-all outline-none text-sm">
+              <option value="auto" data-i18n="lang_auto">跟随浏览器系统 (Auto)</option>
+              <option value="zh" data-i18n="lang_zh">简体中文</option>
+              <option value="en" data-i18n="lang_en">English</option>
+            </select>
           </div>
         </div>
       </div>
@@ -83,36 +102,36 @@
           <svg class="w-5 h-5 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
           </svg>
-          <span>💡 如何设置语速 (Rate) 说明：</span>
+          <span data-i18n="instructions_title">💡 如何设置语速 (Rate) 说明：</span>
         </h3>
-        <p class="text-xs leading-relaxed text-slate-600">
+        <p class="text-xs leading-relaxed text-slate-600" data-i18n="instructions_desc">
           `edge-tts` 支持通过相对百分比来微调发音的速度。您可以在语速输入框中填写符合规范的字符串：
         </p>
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
           <div class="bg-white p-3 rounded-xl border border-slate-100">
             <div class="font-mono text-xs font-semibold text-brand-600">+10% 或 +20%</div>
-            <div class="text-[11px] text-slate-500 mt-1">语速加速 10% 或 20%，适合进阶听力训练</div>
+            <div class="text-[11px] text-slate-500 mt-1" data-i18n="instruction_fast">语速加速 10% 或 20%，适合进阶听力训练</div>
           </div>
           <div class="bg-white p-3 rounded-xl border border-slate-100">
             <div class="font-mono text-xs font-semibold text-slate-600">+0% (默认)</div>
-            <div class="text-[11px] text-slate-500 mt-1">标准原生语速，微软小娜默认音速</div>
+            <div class="text-[11px] text-slate-500 mt-1" data-i18n="instruction_default">标准原生语速，微软小娜默认音速</div>
           </div>
           <div class="bg-white p-3 rounded-xl border border-slate-100">
             <div class="font-mono text-xs font-semibold text-indigo-600">-10% 或 -20%</div>
-            <div class="text-[11px] text-slate-500 mt-1">语速减速 10% 或 20%，适合初学者精听单词</div>
+            <div class="text-[11px] text-slate-500 mt-1" data-i18n="instruction_slow">语速减速 10% 或 20%，适合初学者精听单词</div>
           </div>
         </div>
       </div>
 
       <!-- Action Button -->
       <div class="flex items-center justify-between pt-4 border-t border-slate-100">
-        <button id="testConnection" class="text-xs font-semibold text-brand-600 hover:text-brand-700 hover:bg-brand-50 px-4 py-2 rounded-xl transition-all duration-200 focus:outline-none">
+        <button id="testConnection" class="text-xs font-semibold text-brand-600 hover:text-brand-700 hover:bg-brand-50 px-4 py-2 rounded-xl transition-all duration-200 focus:outline-none" data-i18n="btn_test">
           ⚡ 测试后端连接
         </button>
         
         <div class="flex items-center space-x-3">
           <span id="status" class="text-xs font-medium text-emerald-600 opacity-0 transition-all duration-300 transform translate-x-2">保存成功！</span>
-          <button id="save" class="bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold px-6 py-3 rounded-xl shadow-md hover:shadow-lg transition-all duration-200 transform active:scale-95 focus:outline-none">
+          <button id="save" class="bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold px-6 py-3 rounded-xl shadow-md hover:shadow-lg transition-all duration-200 transform active:scale-95 focus:outline-none" data-i18n="btn_save">
             保存配置
           </button>
         </div>

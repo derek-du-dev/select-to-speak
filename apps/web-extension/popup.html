@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title data-i18n="doc_title">Select-to-Speak 使用手册</title>
+  <script>
+    (function() {
+      const isCN = (function() {
+        try {
+          const locale = navigator.language || '';
+          const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+          return locale.toLowerCase().includes('zh') || tz.includes('Asia/Shanghai') || tz.includes('Asia/Chongqing') || tz.includes('Asia/Harbin') || tz.includes('Asia/Urumqi');
+        } catch (e) {
+          return false;
+        }
+      })();
+      const fontHost = isCN ? 'fonts.loli.net' : 'fonts.googleapis.com';
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = `https://${fontHost}/css2?family=Inter:wght@400;500;600;700&display=swap`;
+      document.head.appendChild(link);
+    })();
+  </script>
+  <link rel="stylesheet" href="dist/tailwind.css">
+  <style>
+    body {
+      width: 380px;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans p-4 selection:bg-brand-100 selection:text-brand-900">
+  
+  <div class="bg-white rounded-2xl shadow-premium border border-slate-100/80 overflow-hidden flex flex-col">
+    <!-- Header banner -->
+    <div class="bg-gradient-to-r from-brand-600 to-indigo-600 p-5 text-white relative">
+      <div class="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full blur-xl -mr-6 -mt-6"></div>
+      
+      <div class="relative z-10 flex items-center space-x-3.5">
+        <div class="bg-white/10 p-0.5 rounded-xl backdrop-blur-md border border-white/20 overflow-hidden flex items-center justify-center">
+          <img src="assets/logo.png" alt="Logo" class="w-9 h-9 object-contain rounded-lg">
+        </div>
+        <div>
+          <h1 class="text-lg font-bold tracking-tight">Select-to-Speak</h1>
+          <p class="text-white/80 text-[11px] mt-0.5" data-i18n="header_subtitle">英语精听与朗读助手使用手册</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Manual Content -->
+    <div class="p-5 space-y-5">
+      
+      <!-- Quick Start -->
+      <div class="space-y-3">
+        <h2 class="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center space-x-2">
+          <span class="w-1.5 h-3 bg-brand-500 rounded-full"></span>
+          <span data-i18n="quick_start_title">🚀 极速上手</span>
+        </h2>
+        
+        <div class="space-y-2.5">
+          <!-- Step 1 -->
+          <div class="flex items-start space-x-3 bg-slate-50/50 p-2.5 rounded-xl border border-slate-100">
+            <div class="bg-brand-50 text-brand-600 font-bold text-[11px] w-5 h-5 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">1</div>
+            <p class="text-xs text-slate-600 leading-relaxed font-medium" data-i18n="step_1">在任意网页上，鼠标划词选择一段英文文本。</p>
+          </div>
+          
+          <!-- Step 2 -->
+          <div class="flex items-start space-x-3 bg-slate-50/50 p-2.5 rounded-xl border border-slate-100">
+            <div class="bg-brand-50 text-brand-600 font-bold text-[11px] w-5 h-5 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">2</div>
+            <div class="space-y-1">
+              <p class="text-xs text-slate-600 leading-relaxed font-medium" data-i18n="step_2">右键菜单提供两种智能学习模式：</p>
+              <div class="flex flex-col space-y-1 pl-1 text-[11px] text-slate-500">
+                <span class="flex items-center space-x-1">
+                  <span class="w-1 h-1 bg-brand-400 rounded-full"></span>
+                  <span data-i18n="mode_read"><b>朗读模式</b>: 轻量悬浮面板播放选中文本</span>
+                </span>
+                <span class="flex items-center space-x-1">
+                  <span class="w-1 h-1 bg-brand-400 rounded-full"></span>
+                  <span data-i18n="mode_listen"><b>精听模式</b>: spaCy 智能切分，逐句精读训练</span>
+                </span>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Step 3 -->
+          <div class="flex items-start space-x-3 bg-slate-50/50 p-2.5 rounded-xl border border-slate-100">
+            <div class="bg-brand-50 text-brand-600 font-bold text-[11px] w-5 h-5 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">3</div>
+            <div class="space-y-1.5 flex-1">
+              <p class="text-xs text-slate-600 leading-relaxed font-medium" data-i18n="step_3">或者直接使用以下全局快捷键（极速推荐）：</p>
+              <div class="grid grid-cols-1 gap-2 pt-0.5">
+                <!-- Shortcut 1 -->
+                <div class="bg-white p-2 rounded-lg border border-slate-200/50 flex justify-between items-center shadow-sm">
+                  <span class="text-[11px] text-slate-500 font-semibold" data-i18n="shortcut_read">朗读选中</span>
+                  <div class="flex items-center space-x-0.5 font-mono text-[9px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 shadow-sm">
+                    <span>Ctrl</span><span>+</span><span>Shift</span><span>+</span><span>Y</span>
+                  </div>
+                </div>
+                <!-- Shortcut 2 -->
+                <div class="bg-white p-2 rounded-lg border border-slate-200/50 flex justify-between items-center shadow-sm">
+                  <span class="text-[11px] text-slate-500 font-semibold" data-i18n="shortcut_listen">精听选中</span>
+                  <div class="flex items-center space-x-0.5 font-mono text-[9px] font-bold text-brand-600 bg-brand-50 px-1.5 py-0.5 rounded border border-brand-200/50 shadow-sm">
+                    <span>Ctrl</span><span>+</span><span>Shift</span><span>+</span><span>H</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Feature Highlight -->
+      <div class="space-y-2">
+        <h2 class="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center space-x-2">
+          <span class="w-1.5 h-3 bg-brand-500 rounded-full"></span>
+          <span data-i18n="features_title">✨ 黄金功能</span>
+        </h2>
+        <div class="grid grid-cols-2 gap-3">
+          <div class="bg-gradient-to-tr from-brand-50/20 to-indigo-50/10 p-3 rounded-xl border border-brand-100/30 flex flex-col space-y-1">
+            <span class="text-[11px] font-bold text-brand-700" data-i18n="feat_cache_title">⚡ 极速离线预加载</span>
+            <span class="text-[10px] text-slate-500 leading-normal" data-i18n="feat_cache_desc">精听抽屉提前缓存后续音频，实现零延迟、零卡顿听力体验。</span>
+          </div>
+          <div class="bg-gradient-to-tr from-brand-50/20 to-indigo-50/10 p-3 rounded-xl border border-brand-100/30 flex flex-col space-y-1">
+            <span class="text-[11px] font-bold text-brand-700" data-i18n="feat_loop_title">🔁 单句循环攻克</span>
+            <span class="text-[10px] text-slate-500 leading-normal" data-i18n="feat_loop_desc">开启单句循环模式，逐个击破英语单词和发音弱项盲区。</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Settings / Action buttons -->
+      <div class="pt-3 border-t border-slate-100 flex items-center justify-between">
+        <div class="flex items-center space-x-1.5 text-[10px] text-slate-400 select-none">
+          <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
+          <span data-i18n="running_status">API Backend Connected</span>
+        </div>
+        <button id="openSettings" class="bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-md hover:shadow-lg transition-all active:scale-95 flex items-center space-x-1.5 focus:outline-none">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+          </svg>
+          <span data-i18n="btn_settings">⚙️ 设置中心</span>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
