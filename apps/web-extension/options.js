@@ -65,20 +65,52 @@ const TRANSLATIONS = {
   }
 };
 
-// Helper to resolve current language preference
-function getLanguage(storedLang) {
+// Supported UI Language mapping and default fallback
+const SUPPORTED_LANGUAGES = {
+  zh: "zh",
+  en: "en"
+};
+const DEFAULT_LANGUAGE = "en";
+
+// Helper to get localized messages (supporting both native chrome.i18n and manual override)
+function getMessage(key, storedLang) {
   const lang = storedLang || "auto";
-  if (lang === "auto") {
-    const uiLang = chrome.i18n.getUILanguage().toLowerCase();
-    return uiLang.startsWith("zh") ? "zh" : "en";
+  
+  const nativeMsg = chrome.i18n.getMessage(key);
+  
+  const langOverride = {
+    auto: nativeMsg
+  };
+  
+  if (langOverride[lang] !== undefined) {
+    return langOverride[lang];
   }
-  return lang;
+  
+  // Custom language override lookup
+  const resolvedLang = SUPPORTED_LANGUAGES[lang] || DEFAULT_LANGUAGE;
+  const dict = TRANSLATIONS[resolvedLang] || TRANSLATIONS[DEFAULT_LANGUAGE];
+  return dict[key] || nativeMsg;
+}
+
+// Helper to resolve translation dictionary dynamically
+function getTranslationsDict(storedLang) {
+  const dict = {};
+  const keys = [
+    "doc_title", "header_subtitle", "tts_settings_title", "voice_label", "rate_label",
+    "lang_settings_title", "lang_label", "lang_auto", "lang_zh", "lang_en",
+    "instructions_title", "instructions_desc", "instruction_fast", "instruction_default",
+    "instruction_slow", "btn_test", "btn_save", "status_saved", "status_connecting",
+    "status_connect_ok", "status_connect_failed"
+  ];
+  keys.forEach(key => {
+    dict[key] = getMessage(key, storedLang);
+  });
+  return dict;
 }
 
 // Function to translate the options page dynamically
 function translateUI(lang) {
-  const resolvedLang = getLanguage(lang);
-  const dict = TRANSLATIONS[resolvedLang] || TRANSLATIONS.en;
+  const dict = getTranslationsDict(lang);
   
   // Set document title
   document.title = dict.doc_title;
@@ -168,8 +200,7 @@ saveBtn.addEventListener("click", () => {
     translateUI(language);
     
     // Show success transition
-    const resolvedLang = getLanguage(language);
-    const dict = TRANSLATIONS[resolvedLang] || TRANSLATIONS.en;
+    const dict = getTranslationsDict(language);
     
     statusText.textContent = dict.status_saved;
     statusText.className = "text-xs font-medium text-emerald-600 opacity-100 transition-all duration-300 transform translate-x-0";
@@ -184,8 +215,7 @@ saveBtn.addEventListener("click", () => {
 testBtn.addEventListener("click", async () => {
   const apiUrl = getApiUrl();
   const language = languageSelect.value;
-  const resolvedLang = getLanguage(language);
-  const dict = TRANSLATIONS[resolvedLang] || TRANSLATIONS.en;
+  const dict = getTranslationsDict(language);
 
   testBtn.disabled = true;
   testBtn.textContent = dict.status_connecting;

@@ -1,0 +1,230 @@
+{
+  "ext_name": {
+    "message": "Select-to-Speak English Assistant"
+  },
+  "ext_desc": {
+    "message": "Premium English learning assistant featuring text-to-speech selection playback and sentence-by-sentence intensive listening drawer."
+  },
+  "cmd_play_selection": {
+    "message": "播放选中的文本 / Play selected text"
+  },
+  "cmd_intensive_listening": {
+    "message": "精听选中的文本 / Intensive listening on selected text"
+  },
+  "context_menu_play": {
+    "message": "Play Selection (Ctrl+Shift+Y)"
+  },
+  "context_menu_intensive": {
+    "message": "Intensive Listening (Ctrl+Shift+H)"
+  },
+  "doc_title": {
+    "message": "Select-to-Speak Settings Center"
+  },
+  "header_subtitle": {
+    "message": "English Intensive Listening & Reading Assistant Settings Center"
+  },
+  "tts_settings_title": {
+    "message": "TTS Voice Settings"
+  },
+  "voice_label": {
+    "message": "Microsoft Edge Default Voice"
+  },
+  "rate_label": {
+    "message": "Speech Rate (Rate)"
+  },
+  "lang_settings_title": {
+    "message": "Language Settings"
+  },
+  "lang_label": {
+    "message": "Choose Interface Language"
+  },
+  "lang_auto": {
+    "message": "Browser Language (Auto)"
+  },
+  "lang_zh": {
+    "message": "简体中文 (Simplified Chinese)"
+  },
+  "lang_en": {
+    "message": "English"
+  },
+  "instructions_title": {
+    "message": "💡 Speech Rate (Rate) Instructions:"
+  },
+  "instructions_desc": {
+    "message": "`edge-tts` supports relative percentages to fine-tune speech speed. Enter strings matching standard formats:"
+  },
+  "instruction_fast": {
+    "message": "Accelerate 10% or 20%, suitable for advanced listening training"
+  },
+  "instruction_default": {
+    "message": "Standard default speech rate"
+  },
+  "instruction_slow": {
+    "message": "Decelerate 10% or 20%, suitable for beginner intensive learning"
+  },
+  "btn_test": {
+    "message": "⚡ Test Connection"
+  },
+  "btn_save": {
+    "message": "Save Settings"
+  },
+  "status_saved": {
+    "message": "Saved successfully!"
+  },
+  "status_connecting": {
+    "message": "⚡ Connecting..."
+  },
+  "status_connect_ok": {
+    "message": "Connected successfully!"
+  },
+  "status_connect_failed": {
+    "message": "Connection failed, check if the backend service is running!"
+  },
+  "doc_title_popup": {
+    "message": "Select-to-Speak Manual"
+  },
+  "header_subtitle_popup": {
+    "message": "English Listening & Reading Assistant Manual"
+  },
+  "quick_start_title": {
+    "message": "🚀 Quick Start"
+  },
+  "step_1": {
+    "message": "Select any English text on a webpage using your mouse."
+  },
+  "step_2": {
+    "message": "Right-click selection for two smart learning modes:"
+  },
+  "mode_read": {
+    "message": "<b>Reading Mode</b>: Play selection via a floating player panel"
+  },
+  "mode_listen": {
+    "message": "<b>Intensive Listening</b>: spaCy smart segmenting & sentence drawer"
+  },
+  "step_3": {
+    "message": "Or directly use these global keyboard shortcuts (Highly Recommended):"
+  },
+  "shortcut_read": {
+    "message": "Read Selection"
+  },
+  "shortcut_listen": {
+    "message": "Intensive Listening"
+  },
+  "features_title": {
+    "message": "✨ Premium Features"
+  },
+  "feat_cache_title": {
+    "message": "⚡ Ultra-fast Preload Cache"
+  },
+  "feat_cache_desc": {
+    "message": "Preloads upcoming sentences to guarantee a completely lag-free listening experience."
+  },
+  "feat_loop_title": {
+    "message": "🔁 Sentence Loop Training"
+  },
+  "feat_loop_desc": {
+    "message": "Toggle loops on a single sentence to master difficult words and pronunciation weak spots."
+  },
+  "running_status": {
+    "message": "FastAPI Backend Active"
+  },
+  "btn_settings": {
+    "message": "Settings Center"
+  },
+  "player_title": {
+    "message": "Reading Mode"
+  },
+  "player_back_5": {
+    "message": "Back 5 seconds"
+  },
+  "player_fwd_5": {
+    "message": "Forward 5 seconds"
+  },
+  "player_generating": {
+    "message": "Generating..."
+  },
+  "player_buffering": {
+    "message": "Buffering..."
+  },
+  "player_ready": {
+    "message": "Ready"
+  },
+  "player_playing": {
+    "message": "Playing"
+  },
+  "player_fetching": {
+    "message": "Fetching audio..."
+  },
+  "player_paused": {
+    "message": "Paused"
+  },
+  "player_finished": {
+    "message": "Finished"
+  },
+  "player_failed": {
+    "message": "Failed"
+  },
+  "player_waiting": {
+    "message": "Waiting to play"
+  },
+  "drawer_title": {
+    "message": "Intensive Listening"
+  },
+  "drawer_subtitle": {
+    "message": "spaCy Splitter · Sentence-by-Sentence"
+  },
+  "drawer_splitting": {
+    "message": "spaCy is segmenting sentences, please wait..."
+  },
+  "drawer_loop_on": {
+    "message": "Loop Sentence (On)"
+  },
+  "drawer_loop_off": {
+    "message": "Loop Sentence (Off)"
+  },
+  "drawer_prev": {
+    "message": "Previous Sentence"
+  },
+  "drawer_next": {
+    "message": "Next Sentence"
+  },
+  "drawer_replay": {
+    "message": "Replay Sentence"
+  },
+  "drawer_curr_sentence": {
+    "message": "Sentence {curr} / {total}"
+  },
+  "drawer_cache_title": {
+    "message": "Preloading speech audio..."
+  },
+  "drawer_cache_progress": {
+    "message": "Preloaded: {loaded} / {total} sentences"
+  },
+  "drawer_cache_desc": {
+    "message": "To guarantee a latency-free intensive listening experience, we are preloading the first {count} high-quality sentences."
+  },
+  "drawer_api_failed": {
+    "message": "API Connection Failed"
+  },
+  "drawer_api_failed_desc": {
+    "message": "Failed to load sentences. Please confirm the apps/api FastAPI backend is running."
+  },
+  "drawer_retry": {
+    "message": "⚡ Retry Now"
+  },
+  "btn_replay_text": {
+    "message": "Replay"
+  },
+  "indicator_loading": {
+    "message": "Buffering audio..."
+  },
+  "indicator_loaded": {
+    "message": "Preloaded (zero latency)"
+  },
+  "indicator_error": {
+    "message": "Preload failed, click to retry"
+  },
+  "indicator_pending": {
+    "message": "Pending preload"
+  }
+}

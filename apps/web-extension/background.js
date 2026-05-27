@@ -1,26 +1,48 @@
 // Background script for Select-to-Speak Extension
 
-// Helper to resolve current language preference
-function getLanguage(storedLang) {
-  const lang = storedLang || "auto";
-  if (lang === "auto") {
-    const uiLang = chrome.i18n.getUILanguage().toLowerCase();
-    return uiLang.startsWith("zh") ? "zh" : "en";
+// Supported UI Language mapping and default fallback
+const SUPPORTED_LANGUAGES = {
+  zh: "zh",
+  en: "en"
+};
+const DEFAULT_LANGUAGE = "en";
+
+// Translations Dictionary
+const TRANSLATIONS = {
+  zh: {
+    context_menu_play: "播放选中内容 (Ctrl+Shift+Y)",
+    context_menu_intensive: "精听选中内容 (Ctrl+Shift+H)"
+  },
+  en: {
+    context_menu_play: "Play Selection (Ctrl+Shift+Y)",
+    context_menu_intensive: "Intensive Listening (Ctrl+Shift+H)"
   }
-  return lang;
+};
+
+// Helper to get localized messages (supporting both native chrome.i18n and manual override)
+function getMessage(key, storedLang) {
+  const lang = storedLang || "auto";
+  
+  const nativeMsg = chrome.i18n.getMessage(key);
+  
+  const langOverride = {
+    auto: nativeMsg
+  };
+  
+  if (langOverride[lang] !== undefined) {
+    return langOverride[lang];
+  }
+  
+  // Custom language override lookup
+  const resolvedLang = SUPPORTED_LANGUAGES[lang] || DEFAULT_LANGUAGE;
+  const dict = TRANSLATIONS[resolvedLang] || TRANSLATIONS[DEFAULT_LANGUAGE];
+  return dict[key] || nativeMsg;
 }
 
 // Function to update context menu titles based on language
 function updateContextMenus(storedLang) {
-  const resolvedLang = getLanguage(storedLang);
-  
-  const playTitle = resolvedLang === "zh" 
-    ? "播放选中内容 (Ctrl+Shift+Y)" 
-    : "Play Selection (Ctrl+Shift+Y)";
-    
-  const intensiveTitle = resolvedLang === "zh" 
-    ? "精听选中内容 (Ctrl+Shift+H)" 
-    : "Intensive Listening (Ctrl+Shift+H)";
+  const playTitle = getMessage("context_menu_play", storedLang);
+  const intensiveTitle = getMessage("context_menu_intensive", storedLang);
 
   // Remove existing context menus first to avoid duplicate IDs during re-registration
   chrome.contextMenus.removeAll(() => {

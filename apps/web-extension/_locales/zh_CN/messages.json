@@ -1,0 +1,230 @@
+{
+  "ext_name": {
+    "message": "Select-to-Speak 英语学习助手"
+  },
+  "ext_desc": {
+    "message": "专为英语学习者打造的划词朗读与精听助手，支持双击/右键呼出智能划词播放面板及 spaCy 精听句子抽屉。"
+  },
+  "cmd_play_selection": {
+    "message": "播放选中的文本 / Play selected text"
+  },
+  "cmd_intensive_listening": {
+    "message": "精听选中的文本 / Intensive listening on selected text"
+  },
+  "context_menu_play": {
+    "message": "播放选中内容 (Ctrl+Shift+Y)"
+  },
+  "context_menu_intensive": {
+    "message": "精听选中内容 (Ctrl+Shift+H)"
+  },
+  "doc_title": {
+    "message": "Select-to-Speak 设置中心"
+  },
+  "header_subtitle": {
+    "message": "英语精听与朗读助手设置中心"
+  },
+  "tts_settings_title": {
+    "message": "TTS 语音设置"
+  },
+  "voice_label": {
+    "message": "微软 Edge 默认发音人"
+  },
+  "rate_label": {
+    "message": "语速调节 (Rate)"
+  },
+  "lang_settings_title": {
+    "message": "界面语言设置"
+  },
+  "lang_label": {
+    "message": "选择显示语言"
+  },
+  "lang_auto": {
+    "message": "跟随浏览器系统 (Auto)"
+  },
+  "lang_zh": {
+    "message": "简体中文"
+  },
+  "lang_en": {
+    "message": "English"
+  },
+  "instructions_title": {
+    "message": "💡 如何设置语速 (Rate) 说明："
+  },
+  "instructions_desc": {
+    "message": "`edge-tts` 支持通过相对百分比来微调发音的速度。您可以在语速输入框中填写符合规范的字符串："
+  },
+  "instruction_fast": {
+    "message": "语速加速 10% 或 20%，适合进阶听力训练"
+  },
+  "instruction_default": {
+    "message": "标准原生语速，微软小娜默认音速"
+  },
+  "instruction_slow": {
+    "message": "语速减速 10% 或 20%，适合初学者精听单词"
+  },
+  "btn_test": {
+    "message": "⚡ 测试后端连接"
+  },
+  "btn_save": {
+    "message": "保存配置"
+  },
+  "status_saved": {
+    "message": "保存成功！"
+  },
+  "status_connecting": {
+    "message": "⚡ 连接中..."
+  },
+  "status_connect_ok": {
+    "message": "连接成功!"
+  },
+  "status_connect_failed": {
+    "message": "连接失败，请检查服务是否开启！"
+  },
+  "doc_title_popup": {
+    "message": "Select-to-Speak 使用手册"
+  },
+  "header_subtitle_popup": {
+    "message": "英语精听与朗读助手使用手册"
+  },
+  "quick_start_title": {
+    "message": "🚀 极速上手"
+  },
+  "step_1": {
+    "message": "在任意网页上，鼠标划词选择一段英文文本。"
+  },
+  "step_2": {
+    "message": "右键菜单提供两种智能学习模式："
+  },
+  "mode_read": {
+    "message": "<b>朗读模式</b>: 轻量悬浮面板播放选中文本"
+  },
+  "mode_listen": {
+    "message": "<b>精听模式</b>: spaCy 智能切分，逐句精读训练"
+  },
+  "step_3": {
+    "message": "或者直接使用以下全局快捷键（极速推荐）："
+  },
+  "shortcut_read": {
+    "message": "朗读选中"
+  },
+  "shortcut_listen": {
+    "message": "精听选中"
+  },
+  "features_title": {
+    "message": "✨ 黄金功能"
+  },
+  "feat_cache_title": {
+    "message": "⚡ 极速离线预加载"
+  },
+  "feat_cache_desc": {
+    "message": "精听抽屉提前缓存后续音频，实现零延迟、零卡顿听力体验。"
+  },
+  "feat_loop_title": {
+    "message": "🔁 单句循环攻克"
+  },
+  "feat_loop_desc": {
+    "message": "开启单句循环模式，逐个击破英语单词和发音弱项盲区。"
+  },
+  "running_status": {
+    "message": "FastAPI 后端已就绪"
+  },
+  "btn_settings": {
+    "message": "⚙️ 设置中心"
+  },
+  "player_title": {
+    "message": "朗读模式"
+  },
+  "player_back_5": {
+    "message": "后退5秒"
+  },
+  "player_fwd_5": {
+    "message": "前进5秒"
+  },
+  "player_generating": {
+    "message": "生成音频中..."
+  },
+  "player_buffering": {
+    "message": "缓冲中..."
+  },
+  "player_ready": {
+    "message": "已就绪"
+  },
+  "player_playing": {
+    "message": "播放中"
+  },
+  "player_fetching": {
+    "message": "获取音频..."
+  },
+  "player_paused": {
+    "message": "已暂停"
+  },
+  "player_finished": {
+    "message": "播毕"
+  },
+  "player_failed": {
+    "message": "获取失败"
+  },
+  "player_waiting": {
+    "message": "等待播放"
+  },
+  "drawer_title": {
+    "message": "英语精听模式"
+  },
+  "drawer_subtitle": {
+    "message": "spaCy 自动分句器 · 逐句精读训练"
+  },
+  "drawer_splitting": {
+    "message": "spaCy 正在智能切分句子，请稍候..."
+  },
+  "drawer_loop_on": {
+    "message": "单句循环 (开启)"
+  },
+  "drawer_loop_off": {
+    "message": "单句循环 (关闭)"
+  },
+  "drawer_prev": {
+    "message": "上一句"
+  },
+  "drawer_next": {
+    "message": "下一句"
+  },
+  "drawer_replay": {
+    "message": "重播当前句"
+  },
+  "drawer_curr_sentence": {
+    "message": "第 {curr} / {total} 句"
+  },
+  "drawer_cache_title": {
+    "message": "正在极速缓存语音..."
+  },
+  "drawer_cache_progress": {
+    "message": "已缓存: {loaded} / {total} 句"
+  },
+  "drawer_cache_desc": {
+    "message": "为了保证您极速、零延迟的精听体验，我们正在为您提前加载前 {count} 句高品质语音。"
+  },
+  "drawer_api_failed": {
+    "message": "API 服务连接失败"
+  },
+  "drawer_api_failed_desc": {
+    "message": "无法载入句子，请确认 apps/api FastAPI 本地后端已启动运行。"
+  },
+  "drawer_retry": {
+    "message": "⚡ 立即重试"
+  },
+  "btn_replay_text": {
+    "message": "重播"
+  },
+  "indicator_loading": {
+    "message": "正在缓冲语音..."
+  },
+  "indicator_loaded": {
+    "message": "已预加载（零延迟播放）"
+  },
+  "indicator_error": {
+    "message": "缓冲失败，点击可重试"
+  },
+  "indicator_pending": {
+    "message": "等待加载中"
+  }
+}

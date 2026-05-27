@@ -17,6 +17,13 @@ function getApiUrl() {
   return isDev ? DEV_API_URL : PROD_API_URL;
 }
 
+// Supported UI Language mapping and default fallback
+const SUPPORTED_LANGUAGES = {
+  zh: "zh",
+  en: "en"
+};
+const DEFAULT_LANGUAGE = "en";
+
 const TRANSLATIONS = {
   zh: {
     // Floating player
@@ -47,7 +54,13 @@ const TRANSLATIONS = {
     drawer_cache_desc: "为了保证您极速、零延迟的精听体验，我们正在为您提前加载前 {count} 句高品质语音。",
     drawer_api_failed: "API 服务连接失败",
     drawer_api_failed_desc: "无法载入句子，请确认 apps/api FastAPI 本地后端已启动运行。",
-    drawer_retry: "⚡ 立即重试"
+    drawer_retry: "⚡ 立即重试",
+    // Drawer buttons and tooltips
+    btn_replay_text: "重播",
+    indicator_loading: "正在缓冲语音...",
+    indicator_loaded: "已预加载（零延迟播放）",
+    indicator_error: "缓冲失败，点击可重试",
+    indicator_pending: "等待加载中"
   },
   en: {
     // Floating player
@@ -78,18 +91,52 @@ const TRANSLATIONS = {
     drawer_cache_desc: "To guarantee a latency-free intensive listening experience, we are preloading the first {count} high-quality sentences.",
     drawer_api_failed: "API Connection Failed",
     drawer_api_failed_desc: "Failed to load sentences. Please confirm the apps/api FastAPI backend is running.",
-    drawer_retry: "⚡ Retry Now"
+    drawer_retry: "⚡ Retry Now",
+    // Drawer buttons and tooltips
+    btn_replay_text: "Replay",
+    indicator_loading: "Buffering audio...",
+    indicator_loaded: "Preloaded (zero latency)",
+    indicator_error: "Preload failed, click to retry",
+    indicator_pending: "Pending preload"
   }
 };
 
-// Helper to resolve current language preference
-function getLanguage(storedLang) {
+// Helper to get localized messages (supporting both native chrome.i18n and manual override)
+function getMessage(key, storedLang) {
   const lang = storedLang || "auto";
-  if (lang === "auto") {
-    const uiLang = chrome.i18n.getUILanguage().toLowerCase();
-    return uiLang.startsWith("zh") ? "zh" : "en";
+  
+  const nativeMsg = chrome.i18n.getMessage(key);
+  
+  const langOverride = {
+    auto: nativeMsg
+  };
+  
+  if (langOverride[lang] !== undefined) {
+    return langOverride[lang];
   }
-  return lang;
+  
+  // Custom language override lookup
+  const resolvedLang = SUPPORTED_LANGUAGES[lang] || DEFAULT_LANGUAGE;
+  const dict = TRANSLATIONS[resolvedLang] || TRANSLATIONS[DEFAULT_LANGUAGE];
+  return dict[key] || nativeMsg;
+}
+
+// Helper to resolve translation dictionary dynamically
+function getTranslationsDict(storedLang) {
+  const dict = {};
+  const keys = [
+    "player_title", "player_back_5", "player_fwd_5", "player_generating", "player_buffering",
+    "player_ready", "player_playing", "player_fetching", "player_paused", "player_finished",
+    "player_failed", "player_waiting", "drawer_title", "drawer_subtitle", "drawer_splitting",
+    "drawer_loop_on", "drawer_loop_off", "drawer_prev", "drawer_next", "drawer_replay",
+    "drawer_curr_sentence", "drawer_cache_title", "drawer_cache_progress", "drawer_cache_desc",
+    "drawer_api_failed", "drawer_api_failed_desc", "drawer_retry", "btn_replay_text",
+    "indicator_loading", "indicator_loaded", "indicator_error", "indicator_pending"
+  ];
+  keys.forEach(key => {
+    dict[key] = getMessage(key, storedLang);
+  });
+  return dict;
 }
 
 let ttsSettings = {
@@ -253,8 +300,7 @@ function renderFloatingPlayer(text, x, y) {
     // Generate standard audio URL
     const ttsUrl = `${settings.apiUrl}/api/tts?text=${encodeURIComponent(text)}&rate=${encodeURIComponent(settings.rate)}&voice=${encodeURIComponent(settings.voice)}`;
     
-    const lang = getLanguage(settings.language);
-    const dict = TRANSLATIONS[lang] || TRANSLATIONS.en;
+    const dict = getTranslationsDict(settings.language);
 
     // Create Player Element
     const player = document.createElement("div");
@@ -563,8 +609,7 @@ function renderIntensiveDrawer(text) {
   console.log("Select-to-Speak: Starting to render intensive listening drawer.");
   
   loadSettings().then(async (settings) => {
-    const lang = getLanguage(settings.language);
-    const dict = TRANSLATIONS[lang] || TRANSLATIONS.en;
+     const dict = getTranslationsDict(settings.language);
 
     // Create backdrop element
     const backdrop = document.createElement("div");
@@ -723,7 +768,7 @@ function renderIntensiveDrawer(text) {
             <svg class="w-4 h-4 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 8H18.2"></path>
             </svg>
-            <span class="text-xs font-semibold text-slate-600 group-hover:text-brand-600">${lang === 'zh' ? '重播' : 'Replay'}</span>
+            <span class="text-xs font-semibold text-slate-600 group-hover:text-brand-600">${dict.btn_replay_text}</span>
           </button>
         </div>
       </div>
@@ -986,8 +1031,7 @@ function updateSentencePreloadStatusUI(index, status) {
   const indicatorContainer = item.querySelector(".preload-status-indicator");
   if (!indicatorContainer) return;
 
-  const lang = getLanguage(ttsSettings.language);
-  const isZH = lang === 'zh';
+  const dict = getTranslationsDict(ttsSettings.language);
 
   if (status === 'loading') {
     indicatorContainer.innerHTML = `
@@ -996,23 +1040,23 @@ function updateSentencePreloadStatusUI(index, status) {
         <span class="relative inline-flex rounded-full h-1.5 w-1.5 bg-brand-500"></span>
       </span>
     `;
-    indicatorContainer.title = isZH ? "正在缓冲语音..." : "Buffering audio...";
+    indicatorContainer.title = dict.indicator_loading;
   } else if (status === 'loaded') {
     indicatorContainer.innerHTML = `
       <span class="inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
     `;
-    indicatorContainer.title = isZH ? "已预加载（零延迟播放）" : "Preloaded (zero latency)";
+    indicatorContainer.title = dict.indicator_loaded;
   } else if (status === 'error') {
     indicatorContainer.innerHTML = `
       <span class="inline-flex rounded-full h-1.5 w-1.5 bg-rose-500 animate-pulse"></span>
     `;
-    indicatorContainer.title = isZH ? "缓冲失败，点击可重试" : "Preload failed, click to retry";
+    indicatorContainer.title = dict.indicator_error;
   } else {
     // Default / pending
     indicatorContainer.innerHTML = `
       <span class="inline-flex rounded-full h-1.5 w-1.5 bg-slate-300"></span>
     `;
-    indicatorContainer.title = isZH ? "等待加载中" : "Pending preload";
+    indicatorContainer.title = dict.indicator_pending;
   }
 }
 
