@@ -22,6 +22,7 @@ if (Test-Path $ZipName) {
 New-Item -ItemType Directory -Path $ReleaseDir -Force > $null
 New-Item -ItemType Directory -Path "$ReleaseDir\dist" -Force > $null
 New-Item -ItemType Directory -Path "$ReleaseDir\assets" -Force > $null
+New-Item -ItemType Directory -Path "$ReleaseDir\_locales" -Force > $null
 
 # 3. Copy only necessary runtime assets
 Write-Output "[+] Copying runtime files..."
@@ -30,8 +31,11 @@ Copy-Item -Path "$PSScriptRoot\background.js" -Destination "$ReleaseDir\"
 Copy-Item -Path "$PSScriptRoot\content.js" -Destination "$ReleaseDir\"
 Copy-Item -Path "$PSScriptRoot\options.html" -Destination "$ReleaseDir\"
 Copy-Item -Path "$PSScriptRoot\options.js" -Destination "$ReleaseDir\"
+Copy-Item -Path "$PSScriptRoot\popup.html" -Destination "$ReleaseDir\"
+Copy-Item -Path "$PSScriptRoot\popup.js" -Destination "$ReleaseDir\"
 Copy-Item -Path "$PSScriptRoot\dist\tailwind.css" -Destination "$ReleaseDir\dist\"
 Copy-Item -Path "$PSScriptRoot\assets\logo.png" -Destination "$ReleaseDir\assets\"
+Copy-Item -Path "$PSScriptRoot\_locales\*" -Destination "$ReleaseDir\_locales\" -Recurse
 
 # 4. Create zip archive
 Write-Output "[+] Compressing files into select-to-speak-extension.zip..."
