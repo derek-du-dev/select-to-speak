@@ -102,6 +102,23 @@ const TRANSLATIONS = {
   }
 };
 
+// Resolve stored language setting into a supported translation key.
+function getLanguage(storedLang) {
+  if (storedLang && storedLang !== "auto") {
+    return SUPPORTED_LANGUAGES[storedLang] || DEFAULT_LANGUAGE;
+  }
+
+  try {
+    const browserLang = (navigator.language || "").toLowerCase();
+    if (browserLang.startsWith("zh")) return "zh";
+    if (browserLang.startsWith("en")) return "en";
+  } catch (e) {
+    console.warn("Failed to resolve browser language:", e);
+  }
+
+  return DEFAULT_LANGUAGE;
+}
+
 // Helper to get localized messages (supporting both native chrome.i18n and manual override)
 function getMessage(key, storedLang) {
   const lang = storedLang || "auto";
