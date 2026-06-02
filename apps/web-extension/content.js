@@ -6,6 +6,7 @@ let componentsRoot = null;
 
 // Global references for audio control
 let activeAudio = null;
+let activeAudioObjectUrl = null;
 let currentSentenceIndex = -1;
 let sentencesList = [];
 let audioCache = {};
@@ -242,12 +243,31 @@ async function loadSettings() {
   });
 }
 
+function buildTtsUrl(text, settings) {
+  return `${settings.apiUrl}/api/tts?text=${encodeURIComponent(text)}&rate=${encodeURIComponent(settings.rate)}&voice=${encodeURIComponent(settings.voice)}`;
+}
+
+async function fetchTtsObjectUrl(text, settings) {
+  const res = await fetch(buildTtsUrl(text, settings));
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const blob = await res.blob();
+  return URL.createObjectURL(blob);
+}
+
 // Helper to destroy any active playing audio
 function stopActiveAudio() {
   if (activeAudio) {
     activeAudio.pause();
     activeAudio.src = "";
     activeAudio = null;
+  }
+  if (activeAudioObjectUrl) {
+    try {
+      URL.revokeObjectURL(activeAudioObjectUrl);
+    } catch (e) {
+      console.warn("Failed to revoke active object URL:", e);
+    }
+    activeAudioObjectUrl = null;
   }
 }
 
@@ -295,11 +315,8 @@ function renderFloatingPlayer(text, x, y) {
     existingPlayer.remove();
   }
 
-  // Load settings and construct TTS URL
+  // Load settings and construct player UI
   loadSettings().then((settings) => {
-    // Generate standard audio URL
-    const ttsUrl = `${settings.apiUrl}/api/tts?text=${encodeURIComponent(text)}&rate=${encodeURIComponent(settings.rate)}&voice=${encodeURIComponent(settings.voice)}`;
-    
     const dict = getTranslationsDict(settings.language);
 
     // Create Player Element
@@ -392,10 +409,6 @@ function renderFloatingPlayer(text, x, y) {
     componentsRoot.appendChild(player);
     setTimeout(() => player.style.opacity = "1", 50);
 
-    // Audio Setup
-    const audio = new Audio(ttsUrl);
-    activeAudio = audio;
-
     // Controls DOM mapping
     const playBtn = player.querySelector("#player-play-btn");
     const spinner = player.querySelector("#play-btn-spinner");
@@ -410,94 +423,121 @@ function renderFloatingPlayer(text, x, y) {
     const backBtn = player.querySelector("#player-back-5");
     const fwdBtn = player.querySelector("#player-fwd-5");
 
-    // Audio lifecycle handlers (Explicit loading, buffering and play states)
-    audio.addEventListener("loadstart", () => {
-      spinner.classList.remove("hidden");
-      playIcon.classList.add("hidden");
-      pauseIcon.classList.add("hidden");
-      statusText.textContent = dict.player_generating;
-    });
+    // Audio Setup. Use a blob URL so page-level media-src CSP cannot block the TTS endpoint.
+    let audio = null;
+    fetchTtsObjectUrl(text, settings).then((objectUrl) => {
+      if (!componentsRoot || !componentsRoot.contains(player)) {
+        URL.revokeObjectURL(objectUrl);
+        return;
+      }
 
-    audio.addEventListener("waiting", () => {
-      spinner.classList.remove("hidden");
-      playIcon.classList.add("hidden");
-      pauseIcon.classList.add("hidden");
-      statusText.textContent = dict.player_buffering;
-    });
+      activeAudioObjectUrl = objectUrl;
+      audio = new Audio(objectUrl);
+      activeAudio = audio;
 
-    audio.addEventListener("canplaythrough", () => {
-      spinner.classList.add("hidden");
-      if (audio.paused) {
+      // Audio lifecycle handlers (Explicit loading, buffering and play states)
+      audio.addEventListener("loadstart", () => {
+        spinner.classList.remove("hidden");
+        playIcon.classList.add("hidden");
+        pauseIcon.classList.add("hidden");
+        statusText.textContent = dict.player_generating;
+      });
+
+      audio.addEventListener("waiting", () => {
+        spinner.classList.remove("hidden");
+        playIcon.classList.add("hidden");
+        pauseIcon.classList.add("hidden");
+        statusText.textContent = dict.player_buffering;
+      });
+
+      audio.addEventListener("canplaythrough", () => {
+        spinner.classList.add("hidden");
+        if (audio.paused) {
+          playIcon.classList.remove("hidden");
+          statusText.textContent = dict.player_ready;
+        }
+      });
+
+      audio.addEventListener("playing", () => {
+        spinner.classList.add("hidden");
+        playIcon.classList.add("hidden");
+        pauseIcon.classList.remove("hidden");
+        statusText.textContent = dict.player_playing;
+      });
+
+      audio.addEventListener("play", () => {
+        // Triggered when play request begins (even during network fetch)
+        spinner.classList.remove("hidden");
+        playIcon.classList.add("hidden");
+        pauseIcon.classList.add("hidden");
+        statusText.textContent = dict.player_fetching;
+      });
+
+      audio.addEventListener("pause", () => {
+        spinner.classList.add("hidden");
+        pauseIcon.classList.add("hidden");
         playIcon.classList.remove("hidden");
-        statusText.textContent = dict.player_ready;
-      }
-    });
+        statusText.textContent = dict.player_paused;
+      });
 
-    audio.addEventListener("playing", () => {
-      spinner.classList.add("hidden");
-      playIcon.classList.add("hidden");
-      pauseIcon.classList.remove("hidden");
-      statusText.textContent = dict.player_playing;
-    });
+      audio.addEventListener("timeupdate", () => {
+        const current = audio.currentTime;
+        const duration = audio.duration || 0;
+        
+        // Update track width
+        const percent = duration > 0 ? (current / duration) * 100 : 0;
+        progressBar.style.width = `${percent}%`;
 
-    audio.addEventListener("play", () => {
-      // Triggered when play request begins (even during network fetch)
-      spinner.classList.remove("hidden");
-      playIcon.classList.add("hidden");
-      pauseIcon.classList.add("hidden");
-      statusText.textContent = dict.player_fetching;
-    });
+        // Update text
+        currTimeText.textContent = formatTime(current);
+        if (duration > 0) {
+          totalTimeText.textContent = formatTime(duration);
+        }
+      });
 
-    audio.addEventListener("pause", () => {
-      spinner.classList.add("hidden");
-      pauseIcon.classList.add("hidden");
-      playIcon.classList.remove("hidden");
-      statusText.textContent = dict.player_paused;
-    });
+      audio.addEventListener("ended", () => {
+        pauseIcon.classList.add("hidden");
+        playIcon.classList.remove("hidden");
+        statusText.textContent = dict.player_finished;
+        progressBar.style.width = "0%";
+        audio.currentTime = 0;
+      });
 
-    audio.addEventListener("timeupdate", () => {
-      const current = audio.currentTime;
-      const duration = audio.duration || 0;
-      
-      // Update track width
-      const percent = duration > 0 ? (current / duration) * 100 : 0;
-      progressBar.style.width = `${percent}%`;
+      audio.addEventListener("error", (e) => {
+        console.error("Audio error: ", e);
+        spinner.classList.add("hidden");
+        playIcon.classList.remove("hidden");
+        statusText.textContent = dict.player_failed;
+        statusText.className = "text-xs font-semibold text-rose-500";
+      });
 
-      // Update text
-      currTimeText.textContent = formatTime(current);
-      if (duration > 0) {
-        totalTimeText.textContent = formatTime(duration);
-      }
-    });
-
-    audio.addEventListener("ended", () => {
-      pauseIcon.classList.add("hidden");
-      playIcon.classList.remove("hidden");
-      statusText.textContent = dict.player_finished;
-      progressBar.style.width = "0%";
-      audio.currentTime = 0;
-    });
-
-    audio.addEventListener("error", (e) => {
-      console.error("Audio error: ", e);
+      // Start playing
+      audio.play().catch(e => {
+        // Graceful fallback for autoplay block: hide spinner and let user trigger manually
+        console.warn("Autoplay blocked, waiting for user click.", e);
+        spinner.classList.add("hidden");
+        playIcon.classList.remove("hidden");
+        pauseIcon.classList.add("hidden");
+        statusText.textContent = dict.player_waiting;
+      });
+    }).catch((e) => {
+      console.error("Failed to fetch TTS audio: ", e);
       spinner.classList.add("hidden");
       playIcon.classList.remove("hidden");
+      pauseIcon.classList.add("hidden");
       statusText.textContent = dict.player_failed;
       statusText.className = "text-xs font-semibold text-rose-500";
     });
 
-    // Start playing
-    audio.play().catch(e => {
-      // Graceful fallback for autoplay block: hide spinner and let user trigger manually
-      console.warn("Autoplay blocked, waiting for user click.", e);
-      spinner.classList.add("hidden");
-      playIcon.classList.remove("hidden");
-      pauseIcon.classList.add("hidden");
-      statusText.textContent = dict.player_waiting;
-    });
-
     // Control clicks
     playBtn.addEventListener("click", () => {
+      if (!audio) {
+        spinner.classList.remove("hidden");
+        playIcon.classList.add("hidden");
+        pauseIcon.classList.add("hidden");
+        statusText.textContent = dict.player_fetching;
+        return;
+      }
       if (audio.paused) {
         audio.play().catch(console.error);
       } else {
@@ -506,14 +546,17 @@ function renderFloatingPlayer(text, x, y) {
     });
 
     backBtn.addEventListener("click", () => {
+      if (!audio) return;
       audio.currentTime = Math.max(0, audio.currentTime - 5);
     });
 
     fwdBtn.addEventListener("click", () => {
+      if (!audio) return;
       audio.currentTime = Math.min(audio.duration || 0, audio.currentTime + 5);
     });
 
     progressContainer.addEventListener("click", (e) => {
+      if (!audio) return;
       const rect = progressContainer.getBoundingClientRect();
       const clickX = e.clientX - rect.left;
       const width = rect.width;
@@ -994,14 +1037,8 @@ async function preloadSentence(index, settings) {
   };
   updateSentencePreloadStatusUI(index, 'loading');
 
-  const text = sentencesList[index];
-  const ttsUrl = `${settings.apiUrl}/api/tts?text=${encodeURIComponent(text)}&rate=${encodeURIComponent(settings.rate)}&voice=${encodeURIComponent(settings.voice)}`;
-
   try {
-    const res = await fetch(ttsUrl);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const blob = await res.blob();
-    const objectUrl = URL.createObjectURL(blob);
+    const objectUrl = await fetchTtsObjectUrl(sentencesList[index], settings);
 
     audioCache[index] = {
       objectUrl: objectUrl,
@@ -1229,7 +1266,9 @@ function playSentence(index) {
     } catch (err) {
       console.warn("Preload fallback activated for sentence:", index, err);
       const sentenceText = sentencesList[index];
-      return `${ttsSettings.apiUrl}/api/tts?text=${encodeURIComponent(sentenceText)}&rate=${encodeURIComponent(ttsSettings.rate)}&voice=${encodeURIComponent(ttsSettings.voice)}`;
+      const objectUrl = await fetchTtsObjectUrl(sentenceText, ttsSettings);
+      activeAudioObjectUrl = objectUrl;
+      return objectUrl;
     }
   };
 
