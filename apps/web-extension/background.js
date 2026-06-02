@@ -87,6 +87,9 @@ function handleSelectionAction(tabId, action, text = null) {
   if (text) message.text = text;
 
   chrome.tabs.sendMessage(tabId, message)
+    .then((response) => {
+      console.log("Selection action response:", response);
+    })
     .catch((error) => {
       console.warn("Content script not ready. Injecting script dynamically...", error);
       
@@ -97,9 +100,13 @@ function handleSelectionAction(tabId, action, text = null) {
       }).then(() => {
         // Re-send the message after short delay to allow content script setup
         setTimeout(() => {
-          chrome.tabs.sendMessage(tabId, message).catch(e => {
-            console.error("Failed to send action after dynamic injection: ", e);
-          });
+          chrome.tabs.sendMessage(tabId, message)
+            .then((response) => {
+              console.log("Selection action response after injection:", response);
+            })
+            .catch(e => {
+              console.error("Failed to send action after dynamic injection: ", e);
+            });
         }, 300);
       }).catch(err => {
         console.error("Failed to inject content script dynamically: ", err);

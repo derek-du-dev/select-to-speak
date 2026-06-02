@@ -1390,19 +1390,51 @@ function formatTime(seconds) {
   return `${m}:${s < 10 ? '0' : ''}${s}`;
 }
 
-// ==========================================
-// 3. LISTEN FOR MESSAGES FROM SERVICE WORKER
-// ==========================================
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  console.log("Injected script received command: ", message);
+function getSelectedTextFromPage() {
+  const activeElement = document.activeElement;
+  if (
+    activeElement &&
+    (activeElement.tagName === "TEXTAREA" ||
+      (activeElement.tagName === "INPUT" &&
+        /^(text|search|url|tel|email|password)$/i.test(activeElement.type || "text"))) &&
+    typeof activeElement.selectionStart === "number" &&
+    typeof activeElement.selectionEnd === "number"
+  ) {
+    return activeElement.value
+      .slice(activeElement.selectionStart, activeElement.selectionEnd)
+      .trim();
+  }
 
-  const { action } = message;
-  let text = message.text;
+  return window.getSelection().toString().trim();
+}
 
-  // Fallback to page text selection if text is not provided (triggered by global shortcuts)
+function getSelectionAnchorPosition() {
+  let selectionX = window.innerWidth / 2;
+  let selectionY = window.innerHeight / 3;
+
+  try {
+    const selection = window.getSelection();
+    if (selection && selection.rangeCount > 0) {
+      const range = selection.getRangeAt(0);
+      const rect = range.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) {
+        selectionX = rect.left + rect.width / 2;
+        selectionY = rect.bottom;
+      }
+    }
+  } catch (e) {
+    console.warn("Failed to retrieve selection coordinates: ", e);
+  }
+
+  return { selectionX, selectionY };
+}
+
+function runSelectionAction(action, providedText) {
+  let text = providedText;
+
   if (!text) {
     try {
-      text = window.getSelection().toString().trim();
+      text = getSelectedTextFromPage();
     } catch (e) {
       console.warn("Failed to retrieve selection text dynamically: ", e);
     }
@@ -1410,37 +1442,53 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (!text) {
     console.log("No text provided and no page selection active.");
-    sendResponse({ status: "no_selection" });
-    return true;
+    return { status: "no_selection" };
   }
 
   if (action === "play-selection") {
-    // Calculate selection coordinates to place player near cursor
-    let selectionX = window.innerWidth / 2;
-    let selectionY = window.innerHeight / 3;
-
-    try {
-      const selection = window.getSelection();
-      if (selection && selection.rangeCount > 0) {
-        const range = selection.getRangeAt(0);
-        const rect = range.getBoundingClientRect();
-        if (rect.width > 0 && rect.height > 0) {
-          selectionX = rect.left + rect.width / 2;
-          selectionY = rect.bottom;
-        }
-      }
-    } catch (e) {
-      console.warn("Failed to retrieve selection coordinates: ", e);
-    }
-
+    const { selectionX, selectionY } = getSelectionAnchorPosition();
     renderFloatingPlayer(text, selectionX, selectionY);
-  } 
-  
-  else if (action === "intensive-listening") {
-    renderIntensiveDrawer(text);
+    return { status: "success" };
   }
+
+  if (action === "intensive-listening") {
+    renderIntensiveDrawer(text);
+    return { status: "success" };
+  }
+
+  return { status: "unknown_action" };
+}
+
+// Content-side shortcut fallback. Browser command registration can be missing
+// or conflict with an existing shortcut; this still works on normal web pages.
+document.addEventListener("keydown", (event) => {
+  if (!event.ctrlKey || !event.shiftKey || event.altKey || event.metaKey) return;
+
+  const key = event.key.toLowerCase();
+  const action =
+    key === "y"
+      ? "play-selection"
+      : key === "h"
+        ? "intensive-listening"
+        : null;
+
+  if (!action) return;
+
+  event.preventDefault();
+  event.stopPropagation();
+  runSelectionAction(action);
+}, true);
+
+// ==========================================
+// 3. LISTEN FOR MESSAGES FROM SERVICE WORKER
+// ==========================================
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  console.log("Injected script received command: ", message);
+
+  const { action } = message;
+  const result = runSelectionAction(action, message.text);
   
   // Respond to keep channel active
-  sendResponse({ status: "success" });
+  sendResponse(result);
   return true;
 });
