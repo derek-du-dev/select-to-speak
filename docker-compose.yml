@@ -1,10 +1,10 @@
-version: '3.8'
-
 services:
   api:
     build:
       context: ./apps/api
       dockerfile: Dockerfile
+    env_file:
+      - ./apps/api/.env
     container_name: select-to-speak-api
     ports:
       - "18002:18002"

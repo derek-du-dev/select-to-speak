@@ -10,6 +10,8 @@ let activeAudioObjectUrl = null;
 let currentSentenceIndex = -1;
 let sentencesList = [];
 let audioCache = {};
+let selectionToolbar = null;
+let teacherChatMessages = [];
 // Get the hardcoded API URL based on runtime environment (development or production)
 function getApiUrl() {
   const isDev = !chrome.runtime.getManifest().update_url;
@@ -157,6 +159,15 @@ function getTranslationsDict(storedLang) {
   return dict;
 }
 
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 let ttsSettings = {
   apiUrl: getApiUrl(),
   voice: "en-US-AvaNeural",
@@ -226,6 +237,88 @@ function initShadowDOM() {
   fontLink.textContent = `@import url('https://${fontHost}/css2?family=Inter:wght@400;500;600;700&display=swap');`;
   shadowRoot.appendChild(fontLink);
 
+  const readabilityStyle = document.createElement("style");
+  readabilityStyle.textContent = `
+    #components-root,
+    #components-root .text-xs,
+    #components-root .text-\\[10px\\],
+    #components-root .text-\\[11px\\] {
+      font-size: 14px !important;
+    }
+
+    #components-root .markdown-body {
+      font-size: 16px;
+      line-height: 1.75;
+      max-width: 100%;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+
+    #components-root .markdown-body h1,
+    #components-root .markdown-body h2,
+    #components-root .markdown-body h3 {
+      margin: 0.35rem 0 0.55rem;
+      color: #0f172a;
+      font-weight: 700;
+      line-height: 1.35;
+    }
+
+    #components-root .markdown-body h1 { font-size: 22px; }
+    #components-root .markdown-body h2 { font-size: 20px; }
+    #components-root .markdown-body h3 { font-size: 18px; }
+
+    #components-root .markdown-body p,
+    #components-root .markdown-body ul,
+    #components-root .markdown-body ol,
+    #components-root .markdown-body pre {
+      margin: 0.5rem 0;
+    }
+
+    #components-root .markdown-body ul,
+    #components-root .markdown-body ol {
+      padding-left: 1.35rem;
+    }
+
+    #components-root .markdown-body ul { list-style: disc; }
+    #components-root .markdown-body ol { list-style: decimal; }
+
+    #components-root .markdown-body code {
+      background: #f1f5f9;
+      border: 1px solid #e2e8f0;
+      border-radius: 0.35rem;
+      color: #334155;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 14px;
+      padding: 0.05rem 0.28rem;
+    }
+
+    #components-root .markdown-body pre {
+      background: #0f172a;
+      border-radius: 0.75rem;
+      color: #e2e8f0;
+      overflow-x: auto;
+      padding: 0.85rem 1rem;
+      white-space: pre-wrap;
+    }
+
+    #components-root .markdown-body pre code {
+      background: transparent;
+      border: 0;
+      color: inherit;
+      padding: 0;
+    }
+
+    #components-root .markdown-body blockquote {
+      background: #f8fafc;
+      border-left: 4px solid #c4b5fd;
+      border-radius: 0.5rem;
+      color: #475569;
+      margin: 0.65rem 0;
+      padding: 0.65rem 0.85rem;
+    }
+  `;
+  shadowRoot.appendChild(readabilityStyle);
+
   // Create component rendering wrapper
   componentsRoot = document.createElement("div");
   componentsRoot.id = "components-root";
@@ -271,6 +364,24 @@ async function fetchTtsObjectUrl(text, settings) {
   return URL.createObjectURL(blob);
 }
 
+async function playSelectedSnippet(text) {
+  if (!text || !text.trim()) return;
+
+  stopActiveAudio();
+
+  try {
+    const objectUrl = await fetchTtsObjectUrl(text.trim(), ttsSettings);
+    activeAudioObjectUrl = objectUrl;
+    const audio = new Audio(objectUrl);
+    activeAudio = audio;
+    audio.play().catch((e) => {
+      console.warn("Selected snippet autoplay blocked:", e);
+    });
+  } catch (e) {
+    console.error("Failed to play selected snippet:", e);
+  }
+}
+
 // Helper to destroy any active playing audio
 function stopActiveAudio() {
   if (activeAudio) {
@@ -297,6 +408,8 @@ function removeDrawer(immediate = false) {
 
   const drawer = componentsRoot.querySelector("#intensive-drawer");
   const backdrop = componentsRoot.querySelector("#drawer-backdrop");
+  clearSelectionToolbar();
+  closeTeacherDrawer(true);
 
   if (drawer && backdrop) {
     if (immediate) {
@@ -650,6 +763,393 @@ function renderFloatingPlayer(text, x, y) {
   });
 }
 
+function getCurrentShadowSelection() {
+  if (shadowRoot && typeof shadowRoot.getSelection === "function") {
+    return shadowRoot.getSelection();
+  }
+  return window.getSelection();
+}
+
+function clearSelectionToolbar() {
+  if (selectionToolbar && selectionToolbar.parentNode) {
+    selectionToolbar.remove();
+  }
+  selectionToolbar = null;
+}
+
+function showSelectionToolbar(text, rect) {
+  clearSelectionToolbar();
+
+  if (!text || !text.trim() || !rect) return;
+
+  const toolbar = document.createElement("div");
+  toolbar.id = "selection-action-toolbar";
+  toolbar.className = "bg-slate-950 text-white shadow-xl border border-slate-800 rounded-xl px-2 py-2 flex items-center gap-2 pointer-events-auto";
+  toolbar.style.position = "fixed";
+  toolbar.style.zIndex = "2147483647";
+  toolbar.style.left = `${Math.max(8, Math.min(rect.left + rect.width / 2 - 62, window.innerWidth - 132))}px`;
+  toolbar.style.top = `${Math.max(8, rect.top - 58)}px`;
+
+  toolbar.innerHTML = `
+    <button id="selection-play-btn" class="h-12 w-12 flex items-center justify-center rounded-lg hover:bg-white/10 active:scale-95 transition-all focus:outline-none" title="播放选中内容">
+      <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path>
+      </svg>
+    </button>
+    <button id="selection-detail-btn" class="h-12 w-12 flex items-center justify-center rounded-lg hover:bg-white/10 active:scale-95 transition-all focus:outline-none" title="查看详情">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path>
+      </svg>
+    </button>
+  `;
+
+  toolbar.querySelector("#selection-play-btn").addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    playSelectedSnippet(text);
+  });
+
+  toolbar.querySelector("#selection-detail-btn").addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    openTeacherDrawer(text);
+  });
+
+  componentsRoot.appendChild(toolbar);
+  selectionToolbar = toolbar;
+}
+
+function bindSelectableSentenceLine(line) {
+  line.addEventListener("mousedown", () => {
+    clearSelectionToolbar();
+  });
+
+  line.addEventListener("mouseup", () => {
+    setTimeout(() => {
+      const selection = getCurrentShadowSelection();
+      if (!selection || selection.rangeCount === 0) return;
+
+      const selectedText = selection.toString().trim();
+      if (!selectedText) {
+        clearSelectionToolbar();
+        return;
+      }
+
+      const range = selection.getRangeAt(0);
+      const startNode = range.startContainer.nodeType === Node.TEXT_NODE
+        ? range.startContainer.parentElement
+        : range.startContainer;
+      const endNode = range.endContainer.nodeType === Node.TEXT_NODE
+        ? range.endContainer.parentElement
+        : range.endContainer;
+
+      if (!line.contains(startNode) || !line.contains(endNode)) {
+        clearSelectionToolbar();
+        return;
+      }
+
+      showSelectionToolbar(selectedText, range.getBoundingClientRect());
+    }, 0);
+  });
+}
+
+function formatInlineMarkdown(text) {
+  return escapeHtml(text)
+    .replace(/`([^`]+)`/g, "<code>$1</code>")
+    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/\*([^*]+)\*/g, "<em>$1</em>");
+}
+
+function formatMarkdownBlocks(text) {
+  const normalized = String(text || "").replace(/\r\n/g, "\n");
+  const lines = normalized.split("\n");
+  const html = [];
+  let paragraph = [];
+  let listType = null;
+  let listItems = [];
+  let codeLines = [];
+  let inCode = false;
+
+  const flushParagraph = () => {
+    if (!paragraph.length) return;
+    html.push(`<p>${formatInlineMarkdown(paragraph.join(" "))}</p>`);
+    paragraph = [];
+  };
+
+  const flushList = () => {
+    if (!listType) return;
+    html.push(`<${listType}>${listItems.map((item) => `<li>${formatInlineMarkdown(item)}</li>`).join("")}</${listType}>`);
+    listType = null;
+    listItems = [];
+  };
+
+  const flushCode = () => {
+    if (!codeLines.length) return;
+    html.push(`<pre><code>${escapeHtml(codeLines.join("\n"))}</code></pre>`);
+    codeLines = [];
+  };
+
+  lines.forEach((line) => {
+    if (line.trim().startsWith("```")) {
+      if (inCode) {
+        flushCode();
+        inCode = false;
+      } else {
+        flushParagraph();
+        flushList();
+        inCode = true;
+      }
+      return;
+    }
+
+    if (inCode) {
+      codeLines.push(line);
+      return;
+    }
+
+    const trimmed = line.trim();
+    if (!trimmed) {
+      flushParagraph();
+      flushList();
+      return;
+    }
+
+    const heading = trimmed.match(/^(#{1,3})\s+(.+)$/);
+    if (heading) {
+      flushParagraph();
+      flushList();
+      const level = heading[1].length;
+      html.push(`<h${level}>${formatInlineMarkdown(heading[2])}</h${level}>`);
+      return;
+    }
+
+    const unordered = trimmed.match(/^[-*]\s+(.+)$/);
+    if (unordered) {
+      flushParagraph();
+      if (listType && listType !== "ul") flushList();
+      listType = "ul";
+      listItems.push(unordered[1]);
+      return;
+    }
+
+    const ordered = trimmed.match(/^\d+[.)]\s+(.+)$/);
+    if (ordered) {
+      flushParagraph();
+      if (listType && listType !== "ol") flushList();
+      listType = "ol";
+      listItems.push(ordered[1]);
+      return;
+    }
+
+    const quote = trimmed.match(/^>\s*(.+)$/);
+    if (quote) {
+      flushParagraph();
+      flushList();
+      html.push(`<blockquote>${formatInlineMarkdown(quote[1])}</blockquote>`);
+      return;
+    }
+
+    flushList();
+    paragraph.push(trimmed);
+  });
+
+  flushParagraph();
+  flushList();
+  if (inCode) flushCode();
+
+  return html.join("");
+}
+
+function closeTeacherDrawer(immediate = false) {
+  if (!componentsRoot) return;
+
+  const panel = componentsRoot.querySelector("#teacher-chat-drawer");
+  const shade = componentsRoot.querySelector("#teacher-chat-shade");
+  if (!panel && !shade) return;
+
+  if (immediate) {
+    if (panel) panel.remove();
+    if (shade) shade.remove();
+    return;
+  }
+
+  if (panel) panel.style.transform = "translateX(100%)";
+  if (shade) shade.style.opacity = "0";
+  setTimeout(() => {
+    if (panel && panel.parentNode) panel.remove();
+    if (shade && shade.parentNode) shade.remove();
+  }, 250);
+}
+
+function createTeacherPrompt(selectedText) {
+  return [
+    "你是一名耐心、专业的英语老师。请用中文解释下面这段学习者从英文句子里选中的内容。",
+    "",
+    "要求：",
+    "1. 先说明它在原文中的核心意思。",
+    "2. 解释重要单词、短语、语法结构和语气。",
+    "3. 给出自然中文翻译。",
+    "4. 如果适合，请给出 1-2 个相似英文例句并配中文解释。",
+    "5. 回答要清晰、适合英语学习者继续追问。",
+    "",
+    `选中内容：${selectedText}`
+  ].join("\n");
+}
+
+function renderChatMessages(container) {
+  container.innerHTML = "";
+  teacherChatMessages.forEach((message, index) => {
+    const bubble = document.createElement("div");
+    const isUser = message.role === "user";
+    bubble.className = isUser
+      ? "max-w-[82%] ml-auto bg-brand-600 text-white rounded-2xl rounded-br-md px-4 py-3 text-base leading-relaxed shadow-sm whitespace-pre-wrap"
+      : "markdown-body max-w-[88%] mr-auto bg-white border border-slate-200 text-slate-800 rounded-2xl rounded-bl-md px-5 py-4 text-base leading-relaxed shadow-sm";
+
+    if (message.pending) {
+      bubble.innerHTML = `
+        <div class="flex items-center gap-2 text-slate-500">
+          <svg class="animate-spin w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <span>正在思考...</span>
+        </div>
+      `;
+    } else {
+      bubble.innerHTML = isUser ? escapeHtml(message.displayText || message.text) : formatMarkdownBlocks(message.text);
+    }
+
+    bubble.dataset.index = index;
+    container.appendChild(bubble);
+  });
+
+  container.scrollTop = container.scrollHeight;
+}
+
+async function requestTeacherReply(chatBody, messagesForApi) {
+  teacherChatMessages.push({ role: "model", text: "", pending: true });
+  renderChatMessages(chatBody);
+
+  try {
+    const res = await fetch(`${ttsSettings.apiUrl}/api/gemini-chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messages: messagesForApi })
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data.detail || `Gemini API returned ${res.status}`);
+    }
+
+    teacherChatMessages.pop();
+    const truncatedNote = data.finishReason === "MAX_TOKENS"
+      ? "\n\n> 内容较长，本次回复已达到输出上限。你可以继续发送“接着讲”让 AI 继续解释。"
+      : "";
+    teacherChatMessages.push({ role: "model", text: `${data.reply || "Gemini 没有返回内容。"}${truncatedNote}` });
+  } catch (e) {
+    teacherChatMessages.pop();
+    teacherChatMessages.push({
+      role: "model",
+      text: `请求 Gemini 失败：${e.message}\n\n请确认后端已配置 GEMINI_API_KEY，并且 FastAPI 服务已重启。`
+    });
+  }
+
+  renderChatMessages(chatBody);
+}
+
+function openTeacherDrawer(selectedText) {
+  closeTeacherDrawer(true);
+  clearSelectionToolbar();
+
+  const drawer = componentsRoot.querySelector("#intensive-drawer");
+  if (!drawer) return;
+
+  const shade = document.createElement("div");
+  shade.id = "teacher-chat-shade";
+  shade.className = "absolute inset-0 bg-slate-950/20 backdrop-blur-[1px] pointer-events-auto";
+  shade.style.zIndex = "60";
+  shade.style.opacity = "0";
+  shade.style.transition = "opacity 250ms ease";
+
+  const panel = document.createElement("div");
+  panel.id = "teacher-chat-drawer";
+  panel.className = "absolute top-0 right-0 h-full bg-slate-50 border-l border-slate-200 shadow-2xl pointer-events-auto flex flex-col";
+  panel.style.width = "90%";
+  panel.style.zIndex = "70";
+  panel.style.transform = "translateX(100%)";
+  panel.style.transition = "transform 250ms cubic-bezier(0.4, 0, 0.2, 1)";
+
+  panel.innerHTML = `
+    <div class="h-16 bg-white border-b border-slate-200 px-5 flex items-center justify-between">
+      <div class="min-w-0">
+        <div class="text-base font-bold text-slate-900">AI 英语老师</div>
+        <div class="text-sm text-slate-500 truncate max-w-[420px]">正在解释：${escapeHtml(selectedText)}</div>
+      </div>
+      <button id="teacher-chat-close" class="h-9 w-9 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-500 transition-all focus:outline-none">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+        </svg>
+      </button>
+    </div>
+    <div id="teacher-chat-body" class="flex-1 overflow-y-auto px-5 py-5 space-y-4 bg-slate-50"></div>
+    <form id="teacher-chat-form" class="bg-white border-t border-slate-200 p-4 flex items-end gap-3">
+      <textarea id="teacher-chat-input" rows="1" class="flex-1 resize-none max-h-28 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base text-slate-800 leading-relaxed focus:outline-none focus:ring-2 focus:ring-brand-100 focus:border-brand-400" placeholder="继续追问这个表达、语法或例句..."></textarea>
+      <button id="teacher-chat-send" class="h-11 w-11 bg-brand-600 hover:bg-brand-700 text-white rounded-xl flex items-center justify-center shadow-sm active:scale-95 transition-all focus:outline-none">
+        <svg class="w-5 h-5 -rotate-45" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M12 5l7 7-7 7"></path>
+        </svg>
+      </button>
+    </form>
+  `;
+
+  drawer.appendChild(shade);
+  drawer.appendChild(panel);
+
+  const closeBtn = panel.querySelector("#teacher-chat-close");
+  const chatBody = panel.querySelector("#teacher-chat-body");
+  const form = panel.querySelector("#teacher-chat-form");
+  const input = panel.querySelector("#teacher-chat-input");
+
+  closeBtn.addEventListener("click", () => closeTeacherDrawer(false));
+  shade.addEventListener("click", () => closeTeacherDrawer(false));
+
+  setTimeout(() => {
+    shade.style.opacity = "1";
+    panel.style.transform = "translateX(0)";
+    input.focus();
+  }, 30);
+
+  const initialPrompt = createTeacherPrompt(selectedText);
+  teacherChatMessages = [{
+    role: "user",
+    text: initialPrompt,
+    displayText: `请解释这段选中内容：\n${selectedText}`
+  }];
+  renderChatMessages(chatBody);
+  requestTeacherReply(chatBody, teacherChatMessages.map(({ role, text }) => ({ role, text })));
+
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const question = input.value.trim();
+    if (!question) return;
+
+    input.value = "";
+    teacherChatMessages.push({ role: "user", text: question });
+    renderChatMessages(chatBody);
+    requestTeacherReply(chatBody, teacherChatMessages
+      .filter((message) => !message.pending)
+      .map(({ role, text }) => ({ role, text })));
+  });
+
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      form.requestSubmit();
+    }
+  });
+}
+
 // ==========================================
 // 2. INTENSIVE LISTENING DRAWER COMPONENT
 // ==========================================
@@ -900,7 +1400,7 @@ function renderIntensiveDrawer(text) {
             <span class="inline-flex rounded-full h-1.5 w-1.5 bg-slate-300"></span>
           </div>
           <div class="flex-1 space-y-1">
-            <p class="sentence-text text-[16px] text-slate-600 font-medium leading-relaxed group-hover:text-slate-800 transition-colors">${sentence}</p>
+            <p class="sentence-text text-[16px] text-slate-600 font-medium leading-relaxed group-hover:text-slate-800 transition-colors">${escapeHtml(sentence)}</p>
           </div>
           <div class="play-icon opacity-0 group-hover:opacity-100 text-brand-600 transition-opacity self-center flex-shrink-0">
             <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
@@ -910,7 +1410,8 @@ function renderIntensiveDrawer(text) {
         `;
 
         // Clicking a sentence triggers playing it
-        item.addEventListener("click", () => {
+        item.addEventListener("click", (event) => {
+          if (event.target.closest(".active-selectable-text")) return;
           playSentence(idx);
         });
 
@@ -1211,6 +1712,7 @@ function playSentence(index) {
   if (index < 0 || index >= sentencesList.length) return;
   
   stopActiveAudio();
+  clearSelectionToolbar();
   currentSentenceIndex = index;
 
   // Visual highlights updating
@@ -1234,6 +1736,20 @@ function playSentence(index) {
         textPara.className = "sentence-text text-[16px] text-slate-900 font-bold leading-relaxed transition-colors";
       }
 
+      let selectableLine = item.querySelector(".active-selectable-text");
+      if (!selectableLine) {
+        selectableLine = document.createElement("div");
+        selectableLine.className = "active-selectable-text mt-3 rounded-xl border border-brand-200 bg-white px-3 py-2 text-[15px] leading-relaxed text-slate-800 shadow-sm cursor-text select-text";
+        selectableLine.title = "选择其中一段文字后，可播放或查看 AI 讲解";
+        selectableLine.addEventListener("click", (event) => {
+          event.stopPropagation();
+        });
+        bindSelectableSentenceLine(selectableLine);
+        const textWrapper = item.querySelector(".flex-1");
+        if (textWrapper) textWrapper.appendChild(selectableLine);
+      }
+      selectableLine.textContent = sentencesList[index];
+
       // Smooth auto-scroll active sentence to center of drawer scroll list
       item.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
@@ -1250,6 +1766,9 @@ function playSentence(index) {
       if (textPara) {
         textPara.className = "sentence-text text-[16px] text-slate-600 font-medium leading-relaxed group-hover:text-slate-800 transition-colors";
       }
+
+      const selectableLine = item.querySelector(".active-selectable-text");
+      if (selectableLine) selectableLine.remove();
     }
   });
 
