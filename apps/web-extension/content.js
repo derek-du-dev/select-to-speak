@@ -11,7 +11,10 @@ let currentSentenceIndex = -1;
 let sentencesList = [];
 let audioCache = {};
 let selectionToolbar = null;
+let selectionAudioCache = {};
 let teacherChatMessages = [];
+let pageScrollLockState = null;
+const MAX_SELECTION_AUDIO_CACHE_SIZE = 30;
 // Get the hardcoded API URL based on runtime environment (development or production)
 function getApiUrl() {
   const isDev = !chrome.runtime.getManifest().update_url;
@@ -364,20 +367,98 @@ async function fetchTtsObjectUrl(text, settings) {
   return URL.createObjectURL(blob);
 }
 
+function lockPageScroll() {
+  if (pageScrollLockState) return;
+
+  const docEl = document.documentElement;
+  const body = document.body;
+  const scrollbarWidth = window.innerWidth - docEl.clientWidth;
+
+  pageScrollLockState = {
+    docOverflow: docEl.style.overflow,
+    bodyOverflow: body.style.overflow,
+    bodyPaddingRight: body.style.paddingRight
+  };
+
+  docEl.style.overflow = "hidden";
+  body.style.overflow = "hidden";
+
+  if (scrollbarWidth > 0) {
+    const currentPadding = parseFloat(window.getComputedStyle(body).paddingRight) || 0;
+    body.style.paddingRight = `${currentPadding + scrollbarWidth}px`;
+  }
+}
+
+function unlockPageScroll() {
+  if (!pageScrollLockState) return;
+
+  document.documentElement.style.overflow = pageScrollLockState.docOverflow;
+  document.body.style.overflow = pageScrollLockState.bodyOverflow;
+  document.body.style.paddingRight = pageScrollLockState.bodyPaddingRight;
+  pageScrollLockState = null;
+}
+
+function pruneSelectionAudioCache() {
+  const entries = Object.entries(selectionAudioCache);
+  if (entries.length <= MAX_SELECTION_AUDIO_CACHE_SIZE) return;
+
+  entries
+    .sort(([, a], [, b]) => (a.lastUsedAt || 0) - (b.lastUsedAt || 0))
+    .slice(0, entries.length - MAX_SELECTION_AUDIO_CACHE_SIZE)
+    .forEach(([key, entry]) => {
+      if (entry && entry.objectUrl) {
+        try {
+          URL.revokeObjectURL(entry.objectUrl);
+        } catch (e) {
+          console.warn("Failed to revoke cached selection audio:", e);
+        }
+      }
+      delete selectionAudioCache[key];
+    });
+}
+
 async function playSelectedSnippet(text) {
   if (!text || !text.trim()) return;
 
   stopActiveAudio();
+  let cacheKey = null;
 
   try {
-    const objectUrl = await fetchTtsObjectUrl(text.trim(), ttsSettings);
-    activeAudioObjectUrl = objectUrl;
+    const trimmedText = text.trim();
+    cacheKey = JSON.stringify({
+      text: trimmedText,
+      apiUrl: ttsSettings.apiUrl,
+      voice: ttsSettings.voice,
+      rate: ttsSettings.rate
+    });
+
+    if (!selectionAudioCache[cacheKey]) {
+      selectionAudioCache[cacheKey] = {
+        status: "loading",
+        promise: fetchTtsObjectUrl(trimmedText, ttsSettings)
+      };
+    }
+
+    const cacheEntry = selectionAudioCache[cacheKey];
+    if (cacheEntry.status === "loading") {
+      cacheEntry.objectUrl = await cacheEntry.promise;
+      cacheEntry.status = "loaded";
+      cacheEntry.lastUsedAt = Date.now();
+      delete cacheEntry.promise;
+    }
+    cacheEntry.lastUsedAt = Date.now();
+    pruneSelectionAudioCache();
+
+    const objectUrl = cacheEntry.objectUrl;
     const audio = new Audio(objectUrl);
     activeAudio = audio;
     audio.play().catch((e) => {
       console.warn("Selected snippet autoplay blocked:", e);
     });
   } catch (e) {
+    if (cacheKey && selectionAudioCache[cacheKey] && selectionAudioCache[cacheKey].status !== "loaded") {
+      delete selectionAudioCache[cacheKey];
+    }
     console.error("Failed to play selected snippet:", e);
   }
 }
@@ -415,6 +496,7 @@ function removeDrawer(immediate = false) {
     if (immediate) {
       drawer.remove();
       backdrop.remove();
+      unlockPageScroll();
     } else {
       drawer.style.transform = "translateX(100%)";
       backdrop.style.opacity = "0";
@@ -424,8 +506,11 @@ function removeDrawer(immediate = false) {
         // Double-check element still exists and belongs to componentsRoot before deletion
         if (drawer.parentNode) drawer.remove();
         if (backdrop.parentNode) backdrop.remove();
+        unlockPageScroll();
       }, 300);
     }
+  } else {
+    unlockPageScroll();
   }
 }
 
@@ -777,7 +862,7 @@ function clearSelectionToolbar() {
   selectionToolbar = null;
 }
 
-function showSelectionToolbar(text, rect) {
+function showSelectionActionToolbar({ text, rect, actions }) {
   clearSelectionToolbar();
 
   if (!text || !text.trim() || !rect) return;
@@ -790,33 +875,48 @@ function showSelectionToolbar(text, rect) {
   toolbar.style.left = `${Math.max(8, Math.min(rect.left + rect.width / 2 - 62, window.innerWidth - 132))}px`;
   toolbar.style.top = `${Math.max(8, rect.top - 58)}px`;
 
-  toolbar.innerHTML = `
-    <button id="selection-play-btn" class="h-12 w-12 flex items-center justify-center rounded-lg hover:bg-white/10 active:scale-95 transition-all focus:outline-none" title="播放选中内容">
-      <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path>
-      </svg>
-    </button>
-    <button id="selection-detail-btn" class="h-12 w-12 flex items-center justify-center rounded-lg hover:bg-white/10 active:scale-95 transition-all focus:outline-none" title="查看详情">
-      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path>
-      </svg>
-    </button>
-  `;
-
-  toolbar.querySelector("#selection-play-btn").addEventListener("click", (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    playSelectedSnippet(text);
-  });
-
-  toolbar.querySelector("#selection-detail-btn").addEventListener("click", (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    openTeacherDrawer(text);
+  actions.forEach((action) => {
+    const button = document.createElement("button");
+    button.className = "h-12 w-12 flex items-center justify-center rounded-lg hover:bg-white/10 active:scale-95 transition-all focus:outline-none";
+    button.title = action.title;
+    button.innerHTML = action.icon;
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      action.onClick(text);
+    });
+    toolbar.appendChild(button);
   });
 
   componentsRoot.appendChild(toolbar);
   selectionToolbar = toolbar;
+}
+
+function showSelectionToolbar(text, rect) {
+  showSelectionActionToolbar({
+    text,
+    rect,
+    actions: [
+      {
+        title: "播放选中内容",
+        icon: `
+          <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path>
+          </svg>
+        `,
+        onClick: playSelectedSnippet
+      },
+      {
+        title: "查看详情",
+        icon: `
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path>
+          </svg>
+        `,
+        onClick: openTeacherDrawer
+      }
+    ]
+  });
 }
 
 function bindSelectableSentenceLine(line) {
@@ -1165,6 +1265,7 @@ function renderIntensiveDrawer(text) {
 
   // IMMEDIATELY remove existing drawer elements to prevent race conditions
   removeDrawer(true);
+  lockPageScroll();
 
   console.log("Select-to-Speak: Starting to render intensive listening drawer.");
   
