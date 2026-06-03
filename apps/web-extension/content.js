@@ -2079,6 +2079,49 @@ function runSelectionAction(action, providedText) {
   return { status: "unknown_action" };
 }
 
+function isEditableTarget(target) {
+  if (!target) return false;
+
+  const element = target.nodeType === Node.TEXT_NODE ? target.parentElement : target;
+  if (!element) return false;
+
+  return Boolean(
+    element.closest("input, textarea, select, [contenteditable='true'], [contenteditable='plaintext-only']")
+  );
+}
+
+function hasVisiblePlayerSurface() {
+  if (!componentsRoot) return false;
+  return Boolean(
+    componentsRoot.querySelector("#floating-player") ||
+    componentsRoot.querySelector("#intensive-drawer")
+  );
+}
+
+function toggleActiveAudioPlayback() {
+  if (!activeAudio) return false;
+
+  if (activeAudio.paused) {
+    activeAudio.play().catch((e) => {
+      console.warn("Spacebar play failed:", e);
+    });
+  } else {
+    activeAudio.pause();
+  }
+
+  return true;
+}
+
+// Spacebar controls play/pause while this extension has an active player.
+document.addEventListener("keydown", (event) => {
+  if (event.code !== "Space" || event.ctrlKey || event.shiftKey || event.altKey || event.metaKey) return;
+  if (isEditableTarget(event.target) || !hasVisiblePlayerSurface()) return;
+  if (!toggleActiveAudioPlayback()) return;
+
+  event.preventDefault();
+  event.stopPropagation();
+}, true);
+
 // Content-side shortcut fallback. Browser command registration can be missing
 // or conflict with an existing shortcut; this still works on normal web pages.
 document.addEventListener("keydown", (event) => {
