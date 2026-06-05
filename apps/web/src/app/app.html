@@ -1,0 +1,169 @@
+<main class="compose-shell">
+  <section class="compose-panel" aria-labelledby="compose-title">
+    <div class="compose-copy">
+      <p class="eyebrow">Select-to-Speak</p>
+      <h1 id="compose-title">精听练习</h1>
+      <p class="summary">粘贴一段英文文本，调用本地 FastAPI 后端进行 spaCy 分句和 Edge TTS 语音生成。</p>
+    </div>
+
+    <label class="text-entry">
+      <span>练习文本</span>
+      <textarea
+        [ngModel]="inputText()"
+        (ngModelChange)="inputText.set($event)"
+        rows="14"
+        placeholder="Paste an article, paragraph, or dialogue here..."
+      ></textarea>
+    </label>
+
+    <div class="compose-actions">
+      <button
+        class="primary-action"
+        type="button"
+        [disabled]="!inputText().trim()"
+        (click)="startIntensiveListening()"
+      >
+        精听
+      </button>
+    </div>
+  </section>
+</main>
+
+@if (mode() === 'listen') {
+  <div class="drawer-backdrop" (click)="backToCompose()"></div>
+
+  <aside class="intensive-drawer" aria-label="英语精听模式">
+    <header class="drawer-header">
+      <div class="brand-mark">ST</div>
+      <div>
+        <h2>英语精听模式</h2>
+        <p>spaCy 自动分句器 · 逐句精读训练</p>
+      </div>
+      <button class="icon-button close-button" type="button" aria-label="关闭" (click)="backToCompose()">×</button>
+    </header>
+
+    <section class="drawer-scroll">
+      @if (loadState() === 'splitting') {
+        <div class="loading-state">
+          <span class="spinner"></span>
+          <p>spaCy 正在智能切分句子，请稍候...</p>
+        </div>
+      }
+
+      @if (loadState() === 'error') {
+        <div class="error-state">
+          <strong>API 服务连接失败</strong>
+          <p>无法载入句子，请确认 apps/api FastAPI 本地后端已启动运行。</p>
+          <code>{{ apiUrl }}</code>
+          <button type="button" (click)="retry()">立即重试</button>
+        </div>
+      }
+
+      @if (loadState() === 'ready') {
+        <div class="sentence-list">
+          @for (sentence of sentences(); track $index; let index = $index) {
+            <div
+              class="sentence-item"
+              role="button"
+              tabindex="0"
+              [id]="'sentence-item-' + index"
+              [class.active]="index === activeIndex()"
+              (click)="selectSentence(index)"
+              (keydown.enter)="selectSentence(index)"
+            >
+              <span class="sentence-index">{{ index + 1 | number: '2.0-0' }}</span>
+              <span class="preload-status" [ngClass]="audioStatus(index)" [title]="audioStatus(index)"></span>
+              <span class="sentence-body">
+                <span class="sentence-text">{{ sentence }}</span>
+                @if (index === activeIndex()) {
+                  <span
+                    class="active-selectable-text"
+                    (click)="keepSelectableTextClick($event)"
+                    (mousedown)="keepSelectableTextClick($event)"
+                    (mouseup)="captureSelectedText($event)"
+                    (keyup)="captureSelectedText($event)"
+                  >
+                    {{ sentence }}
+                  </span>
+                  @if (selectedText()) {
+                    <button class="selection-play-button" type="button" (click)="playSelectedText($event)">
+                      @if (isSelectionAudioLoading()) {
+                        <span class="tiny-spinner"></span>
+                      } @else if (isSelectionAudioPlaying()) {
+                        <span>Ⅱ</span>
+                      } @else {
+                        <span>▶</span>
+                      }
+                      播放选中文本
+                    </button>
+                  }
+                }
+              </span>
+              <span class="inline-play" aria-hidden="true">▶</span>
+            </div>
+          }
+        </div>
+      }
+    </section>
+
+    @if (loadState() === 'ready' && initialPreloaded() < initialPreloadTotal()) {
+      <div class="preload-overlay">
+        <div class="progress-ring" [style.--progress]="preloadPercent() + '%'">
+          <span>↓</span>
+        </div>
+        <h3>正在极速缓存语音...</h3>
+        <p>已缓存: {{ initialPreloaded() }} / {{ initialPreloadTotal() }} 句</p>
+        <small>为了保证极速、零延迟的精听体验，正在提前加载前 {{ initialPreloadTotal() }} 句高品质语音。</small>
+      </div>
+    }
+
+    @if (loadState() === 'ready') {
+      <footer class="drawer-player">
+        <div class="track-meta">
+          <span>{{ formatTime(currentTime()) }}</span>
+          <span>{{ sentenceIndicator() }}</span>
+          <span>{{ formatTime(duration()) }}</span>
+        </div>
+        <button class="progress-track" type="button" aria-label="音频进度" (click)="seek($event)">
+          <span [style.width.%]="progressPercent()"></span>
+        </button>
+
+        <div class="player-controls">
+          <div class="voice-status">
+            <strong>{{ displayVoice() }}</strong>
+            <span><i></i>ONLINE</span>
+          </div>
+
+          <div class="center-controls">
+            <button
+              class="icon-button loop-button"
+              type="button"
+              [class.active]="loopCurrent()"
+              title="单句循环"
+              (click)="loopCurrent.update(value => !value)"
+            >
+              ↻
+            </button>
+            <button class="icon-button" type="button" title="上一句" [disabled]="activeIndex() === 0" (click)="previousSentence()">⏮</button>
+            <button class="play-button" type="button" title="播放/暂停" (click)="togglePlayback()">
+              @if (isBuffering()) {
+                <span class="mini-spinner"></span>
+              } @else if (isPlaying()) {
+                <span>Ⅱ</span>
+              } @else {
+                <span>▶</span>
+              }
+            </button>
+            <button class="icon-button" type="button" title="下一句" [disabled]="activeIndex() === sentences().length - 1" (click)="nextSentence()">⏭</button>
+            <span class="speed-badge">{{ rate }}</span>
+          </div>
+
+          <button class="replay-button" type="button" title="重播当前句" (click)="replayCurrent()">
+            <span>↻</span>
+            重播
+          </button>
+        </div>
+      </footer>
+    }
+  </aside>
+}
